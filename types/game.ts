@@ -1,11 +1,15 @@
-import { Card, PropertyColor } from "./card";
+import { Card, PropertyCard, PropertyColor } from "./card";
 
-export interface PropertyGroup {
+export interface PropertySet {
   id: string;
 
   color: PropertyColor;
 
-  cards: Card[];
+  properties: PropertyCard[];
+
+  house: null;
+
+  hotel: null;
 }
 
 export interface Player {
@@ -17,7 +21,7 @@ export interface Player {
 
   bank: Card[];
 
-  propertyGroups: PropertyGroup[];
+  propertySets: PropertySet[];
 }
 
 export interface GameConfig {

@@ -1,7 +1,8 @@
 export type CardType =
   | "property"
   | "money"
-  | "rent";
+  | "rent"
+  | "action";
 
 export type PropertyColor =
   | "brown"
