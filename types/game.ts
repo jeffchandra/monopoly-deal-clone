@@ -18,6 +18,7 @@ export interface Player {
 
 export interface GameConfig {
   enableDealBreaker: boolean;
+  enableWildCard: boolean;
   winCondition: number; // number of completed sets needed to win (default 3)
 }
 
