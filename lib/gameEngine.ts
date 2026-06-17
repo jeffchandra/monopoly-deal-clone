@@ -12,6 +12,7 @@ export function createPlayer(id: string, name: string): Player {
     hand: [],
     bank: [],
     propertySets: [],
+    pendingPlacements: [],
   };
 }
 
@@ -96,13 +97,13 @@ export function startTurn(game: Game): void {
 }
 
 export function checkWinCondition(game: Game): boolean {
-  for (const player of game.players) {
-    if (getCompletedSetCount(player) >= game.config.winCondition) {
-      game.winnerId = player.id;
-      game.phase = "gameOver";
-      addLog(game, `🏆 ${player.name} wins!`);
-      return true;
-    }
+  const current = getCurrentPlayer(game);
+  const completedSets = getCompletedSetCount(current);
+  if (completedSets >= game.config.winCondition) {
+    game.winnerId = current.id;
+    game.phase = "gameOver";
+    addLog(game, `🏆 ${current.name} wins!`);
+    return true;
   }
   return false;
 }
@@ -119,6 +120,10 @@ export function endTurn(game: Game): void {
   }
 
   const player = getCurrentPlayer(game);
+
+  if (player.pendingPlacements.length > 0) {
+    throw new Error("You must place all received properties first");
+  }
 
   if (player.hand.length > 7) {
     game.phase = "discardPhase";
@@ -278,22 +283,25 @@ export function confirmPayment(
     throw new Error(`Must pay $${amountOwed}M or everything you have`);
   }
 
-  // Remove selected cards from payer and give to receiver
   for (const id of cardIds) {
+    // Try bank first
     const bankIdx = payer.bank.findIndex(c => c.id === id);
     if (bankIdx !== -1) {
       receiver.bank.push(payer.bank.splice(bankIdx, 1)[0]);
       continue;
     }
+
+    // Try incomplete property sets
     for (const set of payer.propertySets) {
       if (isSetComplete(set)) continue;
       const propIdx = set.properties.findIndex(c => c.id === id);
       if (propIdx !== -1) {
-        const card = set.properties.splice(propIdx, 1)[0];
-        receiver.bank.push(card);
+        const card = set.properties.splice(propIdx, 1)[0] as PropertyCard;
+        // Clean up empty set
         if (set.properties.length === 0) {
           payer.propertySets = payer.propertySets.filter(s => s.id !== set.id);
         }
+        receiver.pendingPlacements.push(card);
         break;
       }
     }
@@ -304,9 +312,6 @@ export function confirmPayment(
   game.pendingActions.shift();
   if (game.pendingActions.length === 0) {
     game.phase = "actionPhase";
-    if (game.actionsRemaining <= 0) {
-      endTurn(game);
-    }
   }
 }
 
@@ -384,4 +389,38 @@ export function playRentCard(
     game,
     `${player.name} charged $${amount}M rent on ${PROPERTY_RULES[set.color].displayName}.`
   );
+}
+
+export function placePendingProperty(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  targetSetId: string | null
+): void {
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.pendingPlacements.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not in pending placements");
+
+  const card = player.pendingPlacements.splice(cardIdx, 1)[0];
+
+  if (targetSetId === null) {
+    // New set
+    player.propertySets.push({
+      id: crypto.randomUUID(),
+      color: card.activeColor,
+      properties: [card],
+      hasHouse: false,
+      hasHotel: false,
+    });
+  } else {
+    // Existing set
+    const set = player.propertySets.find(s => s.id === targetSetId);
+    if (!set) throw new Error("Set not found");
+    if (isSetComplete(set)) throw new Error("Set is already complete");
+    if (set.color !== card.activeColor) throw new Error("Color mismatch");
+    set.properties.push(card);
+  }
+
+  addLog(game, `${player.name} placed ${card.name}.`);
+  checkWinCondition(game);
 }

@@ -10,19 +10,17 @@ interface PlayerBoardProps {
   isCurrentTurn: boolean;
   isViewing: boolean;
   isMyTurn: boolean;
-  // Selection state
   selectedCardIds: string[];
   selectedPropertyColor: string | null;
   rentableSets: PropertySet[];
   rentSetId: string | null;
-  // Action states
   allMoney: boolean;
   singleRent: boolean;
   singleNonPropertyNonMoney: boolean;
   canEndTurn: boolean;
   needsDiscard: boolean;
   discardCount: number;
-  // Callbacks
+  pendingPlacements: import("../types/card").PropertyCard[];
   onToggleCard: (cardId: string) => void;
   onAddToSet: (setId: string) => void;
   onNewSet: () => void;
@@ -32,6 +30,9 @@ interface PlayerBoardProps {
   onDrawCards: () => void;
   onEndTurn: () => void;
   onDiscard: () => void;
+  onPlacePending: (cardId: string, targetSetId: string | null) => void;
+  selectedPendingId: string | null;
+  onSelectPending: (cardId: string) => void;
 }
 
 export function PlayerBoard({
@@ -50,6 +51,7 @@ export function PlayerBoard({
   canEndTurn,
   needsDiscard,
   discardCount,
+  pendingPlacements,
   onToggleCard,
   onAddToSet,
   onNewSet,
@@ -59,12 +61,17 @@ export function PlayerBoard({
   onDrawCards,
   onEndTurn,
   onDiscard,
+  onPlacePending,
+  selectedPendingId,
+  onSelectPending
 }: PlayerBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
   const singleProperty =
     selectedCards.length === 1 && selectedCards[0].type === "property";
   const singleRentSelected =
     selectedCards.length === 1 && selectedCards[0].type === "rent";
+  const selectedPendingCard =
+    pendingPlacements.find(c => c.id === selectedPendingId) ?? null;
 
   return (
     <div
@@ -154,31 +161,8 @@ export function PlayerBoard({
 
       {/* ── Bank ── */}
       <div className="mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
-            Bank — ${player.bank.reduce((s, c) => s + c.value, 0)}M
-          </div>
-          {/* Bank button lives next to bank label */}
-          {isMyTurn && isViewing && game.phase === "actionPhase" && (
-            <>
-              {allMoney && (
-                <button
-                  onClick={onBankCards}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-2 py-0.5 rounded text-xs"
-                >
-                  💰 Bank {selectedCardIds.length > 1 ? `${selectedCardIds.length} Cards` : "Card"}
-                </button>
-              )}
-              {singleNonPropertyNonMoney && (
-                <button
-                  onClick={onBankCards}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-2 py-0.5 rounded text-xs"
-                >
-                  💰 Bank Card
-                </button>
-              )}
-            </>
-          )}
+        <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
+          Bank — ${player.bank.reduce((s, c) => s + c.value, 0)}M
         </div>
         <div className="flex flex-wrap gap-1">
           {player.bank.length === 0 ? (
@@ -194,6 +178,28 @@ export function PlayerBoard({
             ))
           )}
         </div>
+
+        {/* Bank button — below bank cards, mirrors New Set */}
+        {isMyTurn && isViewing && game.phase === "actionPhase" && (
+          <>
+            {allMoney && (
+              <button
+                onClick={onBankCards}
+                className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+              >
+                💰 Bank {selectedCardIds.length > 1 ? `${selectedCardIds.length} Cards` : "Card"}
+              </button>
+            )}
+            {singleNonPropertyNonMoney && (
+              <button
+                onClick={onBankCards}
+                className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+              >
+                💰 Bank Card
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Property sets ── */}
@@ -201,110 +207,186 @@ export function PlayerBoard({
         <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
           Properties
         </div>
+
         {player.propertySets.length === 0 ? (
-          <span className="text-xs text-slate-500">None</span>
+          <>
+            <span className="text-xs text-slate-500">None</span>
+            {(singleProperty || selectedPendingCard !== null) &&
+              isViewing &&
+              isMyTurn &&
+              (game.phase === "actionPhase" || game.phase === "pendingAction") && (
+                <button
+                  onClick={() => {
+                    if (selectedPendingCard) {
+                      onPlacePending(selectedPendingCard.id, null);
+                      onSelectPending("");
+                    } else {
+                      onNewSet();
+                    }
+                  }}
+                  className="mt-2 block bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                >
+                  ＋ New Set
+                </button>
+              )}
+          </>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {player.propertySets.map(set => {
-              const complete = isSetComplete(set);
-              const rule = PROPERTY_RULES[set.color];
+          <>
+            <div className="flex flex-wrap gap-2">
+              {player.propertySets.map(set => {
+                const complete = isSetComplete(set);
+                const rule = PROPERTY_RULES[set.color];
 
-              const isMatchingColor =
-                isViewing &&
-                isMyTurn &&
-                game.phase === "actionPhase" &&
-                singleProperty &&
-                selectedPropertyColor === set.color &&
-                !complete;
+                const selectedPendingCard = pendingPlacements.find(c => c.id === selectedPendingId) ?? null;
 
-              const isRentTarget =
-                isViewing &&
-                isMyTurn &&
-                game.phase === "actionPhase" &&
-                singleRentSelected &&
-                rentableSets.some(s => s.id === set.id);
+                const isMatchingColor =
+                  isViewing &&
+                  isMyTurn &&
+                  !complete &&
+                  (game.phase === "actionPhase" || game.phase === "pendingAction") &&
+                  (
+                    (singleProperty && selectedPropertyColor === set.color) ||
+                    (selectedPendingCard !== null && selectedPendingCard.activeColor === set.color)
+                  );
 
-              const isSelectedRentSet = set.id === rentSetId;
+                const isRentTarget =
+                  isViewing &&
+                  isMyTurn &&
+                  game.phase === "actionPhase" &&
+                  singleRentSelected &&
+                  rentableSets.some(s => s.id === set.id);
 
+                const isSelectedRentSet = set.id === rentSetId;
+
+                return (
+                  <div
+                    key={set.id}
+                    onClick={() => {
+                      if (isRentTarget) onSelectRentSet(set.id);
+                    }}
+                    className={`text-xs border rounded-lg px-3 py-2 transition-colors ${
+                      isSelectedRentSet
+                        ? "border-red-400 bg-red-900/30 cursor-pointer"
+                        : isRentTarget
+                          ? "border-red-600 bg-red-900/20 cursor-pointer hover:border-red-400"
+                          : isMatchingColor
+                            ? "border-violet-400 bg-violet-900/30"
+                            : complete
+                              ? "border-yellow-600 bg-slate-700"
+                              : "border-slate-500 bg-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold text-white mb-1">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: rule.color }}
+                      />
+                      <span>{rule.displayName}</span>
+                      <span className="text-slate-400 font-normal">
+                        {set.properties.length}/{rule.setSize}
+                      </span>
+                      {complete && (
+                        <span className="text-yellow-400 ml-1">✓</span>
+                      )}
+                      {isRentTarget && (
+                        <span className="ml-auto text-red-300 font-normal">
+                          ${getRentForSet(set)}M rent
+                        </span>
+                      )}
+                      {isMatchingColor && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (selectedPendingCard) {
+                              onPlacePending(selectedPendingCard.id, set.id);
+                              onSelectPending("");
+                            } else {
+                              onAddToSet(set.id);
+                            }
+                          }}
+                          className="ml-2 bg-orange-600 hover:bg-orange-500 text-white px-2 py-0.5 rounded text-xs font-semibold"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-slate-400 leading-tight">
+                      {set.properties.map(p => p.name).join(", ")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Charge Rent — below sets */}
+            {isMyTurn && isViewing && game.phase === "actionPhase" && singleRentSelected && rentSetId && (
+              <button
+                onClick={onPlayRent}
+                className="mt-2 bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+              >
+                💸 Charge Rent
+              </button>
+            )}
+
+            {/* New Set — below sets */}
+            {(singleProperty || selectedPendingCard !== null) &&
+              isViewing &&
+              isMyTurn &&
+              (game.phase === "actionPhase" || game.phase === "pendingAction") && (
+                <button
+                  onClick={() => {
+                    if (selectedPendingCard) {
+                      onPlacePending(selectedPendingCard.id, null);
+                      onSelectPending("");
+                    } else {
+                      onNewSet();
+                    }
+                  }}
+                  className="mt-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                >
+                  ＋ New Set
+                </button>
+              )}
+          </>
+        )}
+      </div>
+
+      {/* ── Pending placements ── */}
+      {isViewing && pendingPlacements.length > 0 && (
+        <div className="mb-3">
+          <div className="text-xs text-violet-400 font-semibold uppercase tracking-wide mb-1">
+            Received — tap to place
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {pendingPlacements.map(card => {
+              const rule = PROPERTY_RULES[card.activeColor];
+              const isSelected = selectedPendingId === card.id;
               return (
                 <div
-                  key={set.id}
-                  onClick={() => {
-                    if (isRentTarget) onSelectRentSet(set.id);
-                  }}
-                  className={`text-xs border rounded-lg px-3 py-2 transition-colors ${
-                    isSelectedRentSet
-                      ? "border-red-400 bg-red-900/30 cursor-pointer"
-                      : isRentTarget
-                        ? "border-red-600 bg-red-900/20 cursor-pointer hover:border-red-400"
-                        : isMatchingColor
-                          ? "border-violet-400 bg-violet-900/30"
-                          : complete
-                            ? "border-yellow-600 bg-slate-700"
-                            : "border-slate-500 bg-slate-700"
+                  key={card.id}
+                  onClick={() => onSelectPending(isSelected ? "" : card.id)}
+                  className={`text-xs border rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${
+                    isSelected
+                      ? "bg-violet-700 border-violet-400 text-white"
+                      : "bg-slate-700 border-violet-500 text-violet-300 hover:border-violet-400"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 font-semibold text-white mb-1">
+                  <div className="flex items-center gap-1">
                     <div
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: rule.color }}
                     />
-                    <span>{rule.displayName}</span>
-                    <span className="text-slate-400 font-normal">
-                      {set.properties.length}/{rule.setSize}
-                    </span>
-                    {complete && (
-                      <span className="text-yellow-400 ml-1">✓</span>
-                    )}
-                    {isRentTarget && (
-                      <span className="ml-auto text-red-300 font-normal">
-                        ${getRentForSet(set)}M rent
-                      </span>
-                    )}
-                    {isMatchingColor && (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          onAddToSet(set.id);
-                        }}
-                        className="ml-2 bg-orange-600 hover:bg-orange-500 text-white px-2 py-0.5 rounded text-xs font-semibold"
-                      >
-                        Add
-                      </button>
-                    )}
+                    <span className="font-semibold">{card.name}</span>
                   </div>
-                  <div className="text-slate-400 leading-tight">
-                    {set.properties.map(p => p.name).join(", ")}
+                  <div className="text-slate-400 mt-0.5">
+                    ${card.value}M · {rule.displayName}
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
-
-        {/* Charge Rent button — below properties when rent set selected */}
-        {isMyTurn && isViewing && game.phase === "actionPhase" && singleRentSelected && rentSetId && (
-          <button
-            onClick={onPlayRent}
-            className="mt-2 bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-          >
-            💸 Charge Rent
-          </button>
-        )}
-
-        {/* New Set button */}
-        {singleProperty &&
-          isViewing &&
-          isMyTurn &&
-          game.phase === "actionPhase" && (
-            <button
-              onClick={onNewSet}
-              className="mt-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-            >
-              ＋ New Set
-            </button>
-          )}
-      </div>
+        </div>
+      )}
 
       {/* ── Hand ── */}
       {isViewing ? (

@@ -13,6 +13,8 @@ export default function Page() {
     error,
     clearError,
     init,
+    reset,
+    lastLog,
     doStartTurn,
     doEndTurn,
     doDiscard,
@@ -21,6 +23,7 @@ export default function Page() {
     doPlacePropertyIntoSet,
     doPlayRentCard,
     doConfirmPayment,
+    doPlacePendingProperty,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
@@ -29,6 +32,7 @@ export default function Page() {
   const [paymentCardIds, setPaymentCardIds] = useState<string[]>([]);
   const [viewingPlayerId, setViewingPlayerId] = useState<string>("p1");
   const [playerNames, setPlayerNames] = useState<string[]>(["Alice", "Bob"]);
+  const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
 
   // ── Setup screen ────────────────────────────────────────────────────────────
   if (!game) {
@@ -119,6 +123,7 @@ export default function Page() {
   const canEndTurn =
     game.phase === "actionPhase" &&
     isMyTurn &&
+    currentPlayer.pendingPlacements.length === 0 &&
     (game.actionsRemaining === 0 || currentPlayer.hand.length <= 7);
 
   const needsDiscard = game.phase === "discardPhase" && isMyTurn;
@@ -137,6 +142,7 @@ export default function Page() {
   function toggleCardSelection(cardId: string) {
     const card = viewPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
+    setSelectedPendingId(null);
     if (card.type === "property") {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
     } else if (card.type === "money") {
@@ -144,6 +150,9 @@ export default function Page() {
         const moneyOnly = prev.filter(id =>
           viewPlayer.hand.find(c => c.id === id)?.type === "money"
         );
+        if (!moneyOnly.includes(cardId) && moneyOnly.length >= (game?.actionsRemaining ?? 0)) {
+          return prev;
+        }
         return moneyOnly.includes(cardId)
           ? moneyOnly.filter(id => id !== cardId)
           : [...moneyOnly, cardId];
@@ -184,9 +193,16 @@ export default function Page() {
   function handleConfirmPayment() {
     if (!game) return;
     const nextPending = game.pendingActions[1];
+    const actingPlayerId = game.currentPlayerId;
     doConfirmPayment(viewingPlayerId, paymentCardIds, () => {
       setPaymentCardIds([]);
-      if (nextPending) setViewingPlayerId(nextPending.fromPlayerId);
+      if (nextPending) {
+        // More payments to resolve — switch to next payer
+        setViewingPlayerId(nextPending.fromPlayerId);
+      } else {
+        // All done — switch back to the player whose turn it is
+        setViewingPlayerId(actingPlayerId);
+      }
     });
   }
 
@@ -203,8 +219,8 @@ export default function Page() {
   if (game.phase === "gameOver") {
     const winner = game.players.find(p => p.id === game.winnerId)!;
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center p-8">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="text-center p-8 max-w-lg w-full">
           <div className="text-6xl mb-4">🏆</div>
           <h1 className="text-4xl font-black text-yellow-400 mb-2">
             {winner.name} Wins!
@@ -214,15 +230,29 @@ export default function Page() {
           </p>
           <button
             onClick={() => {
-              init(playerNames);
+              reset();
               setViewingPlayerId("p1");
               clearSelection();
               setPaymentCardIds([]);
             }}
-            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-black rounded-xl text-lg"
+            className="px-8 py-3 bg-slate-600 hover:bg-slate-500 text-white font-black rounded-xl text-lg mb-8"
           >
-            Play Again
+            ← Main Menu
           </button>
+          {/* Game log */}
+          <div className="border border-slate-600 rounded-xl p-3 bg-slate-800/50 text-left">
+            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+              Game Log
+            </div>
+            {lastLog.map((entry, i) => (
+              <div
+                key={i}
+                className="text-xs text-slate-400 py-0.5 border-b border-slate-700 last:border-0"
+              >
+                {entry}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -299,7 +329,15 @@ export default function Page() {
             canEndTurn={canEndTurn}
             needsDiscard={needsDiscard}
             discardCount={discardCount}
+            pendingPlacements={player.pendingPlacements}
             onToggleCard={toggleCardSelection}
+            selectedPendingId={player.id === viewPlayer.id ? selectedPendingId : null}
+            onSelectPending={id => {
+              setSelectedPendingId(id === selectedPendingId ? null : id)
+              setSelectedCardIds([]);
+              setSelectedSetId(null);
+              setRentSetId(null);
+            }}
             onAddToSet={setId => {
               doPlacePropertyIntoSet(viewPlayer.id, selectedCardIds[0], setId);
               clearSelection();
@@ -319,6 +357,9 @@ export default function Page() {
             onDrawCards={doStartTurn}
             onEndTurn={handleEndTurn}
             onDiscard={handleDiscard}
+            onPlacePending={(cardId, targetSetId) =>
+              doPlacePendingProperty(player.id, cardId, targetSetId)
+            }
           />
         ))}
 

@@ -10,6 +10,7 @@ import {
   placePropertyAsNewSet,
   placePropertyIntoSet,
   playRentCard,
+  placePendingProperty,
   getCurrentPlayer,
   getPayableSources,
   confirmPayment,
@@ -28,6 +29,7 @@ function sortBank(bank: Card[]): Card[] {
 export function useGame() {
   const [game, setGame] = useState<Game | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastLog, setLastLog] = useState<string[]>([]);
 
   function update(fn: (g: Game) => void, afterFn?: () => void) {
     setError(null);
@@ -39,6 +41,7 @@ export function useGame() {
         for (const p of next.players) {
           p.bank = sortBank(p.bank);
         }
+        setLastLog(next.log);
         return next;
       } catch (e: any) {
         setError(e.message);
@@ -53,7 +56,7 @@ export function useGame() {
       createPlayer(`p${i + 1}`, name)
     );
     const g = createGame(players);
-    g.config.winCondition = 1; // temporary — win with just 1 complete set
+    // g.config.winCondition = 1; // temporary — win with just 1 complete set
     startGame(g);
     setGame(g);
     setError(null);
@@ -91,6 +94,10 @@ export function useGame() {
     update(g => playRentCard(g, playerId, cardId, setId), onSuccess);
   }
 
+  function doPlacePendingProperty(playerId: string, cardId: string, targetSetId: string | null) {
+    update(g => placePendingProperty(g, playerId, cardId, targetSetId));
+  }
+
   function doConfirmPayment(playerId: string, cardIds: string[], onSuccess: () => void) {
     update(g => confirmPayment(g, playerId, cardIds), onSuccess);
   }
@@ -99,10 +106,17 @@ export function useGame() {
     setError(null);
   }
 
+  function reset() {
+    setGame(null);
+    setError(null);
+    setLastLog([]);
+  }
+
   return {
     game,
     error,
     clearError,
+    lastLog,
     init,
     getCurrentPlayer: () => game ? getCurrentPlayer(game) : null,
     getPayableSources: (playerId: string) => game ? getPayableSources(game, playerId) : null,
@@ -114,5 +128,7 @@ export function useGame() {
     doPlacePropertyIntoSet,
     doPlayRentCard,
     doConfirmPayment,
-  };
+    doPlacePendingProperty,
+    reset,
+  }
 }

@@ -14,6 +14,7 @@ export interface Player {
   hand: Card[];
   bank: Card[];
   propertySets: PropertySet[];
+  pendingPlacements: PropertyCard[];
 }
 
 export interface GameConfig {
