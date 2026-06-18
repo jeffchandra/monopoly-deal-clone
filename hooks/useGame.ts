@@ -11,6 +11,11 @@ import {
   placePropertyIntoSet,
   playRentCard,
   placePendingProperty,
+  playPassGo,
+  playItsMyBirthday,
+  playDebtCollector,
+  playSlyDeal,
+  playForcedDeal,
   getCurrentPlayer,
   getPayableSources,
   confirmPayment,
@@ -70,8 +75,8 @@ export function useGame() {
     update(g => endTurn(g), onSuccess);
   }
 
-  function doDiscard(playerId: string, cardIds: string[], onSuccess: () => void) {
-    update(g => discard(g, playerId, cardIds), onSuccess);
+  function doDiscard(playerId: string, cardId: string, onSuccess?: () => void) {
+    update(g => discard(g, playerId, cardId), onSuccess);
   }
 
   function doBankCards(playerId: string, cardIds: string[]) {
@@ -102,6 +107,41 @@ export function useGame() {
     update(g => confirmPayment(g, playerId, cardIds), onSuccess);
   }
 
+  function doPlayPassGo(playerId: string, cardId: string) {
+    update(g => playPassGo(g, playerId, cardId));
+  }
+
+  function doPlayItsMyBirthday(playerId: string, cardId: string, onSuccess: () => void) {
+    update(g => playItsMyBirthday(g, playerId, cardId), onSuccess);
+  }
+
+  function doPlayDebtCollector(playerId: string, cardId: string, targetPlayerId: string, onSuccess: () => void) {
+    update(g => playDebtCollector(g, playerId, cardId, targetPlayerId), onSuccess);
+  }
+
+  function doPlaySlyDeal(
+    playerId: string,
+    cardId: string,
+    targetPlayerId: string,
+    targetSetId: string,
+    targetCardId: string
+  ) {
+    update(g => playSlyDeal(g, playerId, cardId, targetPlayerId, targetSetId, targetCardId));
+  }
+
+  function doPlayForcedDeal(
+    playerId: string,
+    cardId: string,
+    targetPlayerId: string,
+    targetSetId: string,
+    targetCardId: string,
+    offeredSetId: string,
+    offeredCardId: string,
+    onSuccess: () => void
+  ) {
+    update(g => playForcedDeal(g, playerId, cardId, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId), onSuccess);
+  }
+
   function clearError() {
     setError(null);
   }
@@ -129,6 +169,11 @@ export function useGame() {
     doPlayRentCard,
     doConfirmPayment,
     doPlacePendingProperty,
+    doPlayPassGo,
+    doPlayItsMyBirthday,
+    doPlayDebtCollector,
+    doPlaySlyDeal,
+    doPlayForcedDeal,
     reset,
   }
 }

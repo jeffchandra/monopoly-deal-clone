@@ -1,5 +1,5 @@
 import { PROPERTY_RULES } from "../data/propertyRules";
-import { Card, MoneyCard, PropertyCard, PropertyColor, RentCard } from "../types/card";
+import { Card, MoneyCard, PropertyCard, PropertyColor, RentCard, ActionCard } from "../types/card";
 
 export function shuffleDeck(deck: Card[]): Card[] {
   const shuffled = [...deck];
@@ -92,6 +92,41 @@ export function createDeck(): Card[] {
       } as RentCard);
     }
   }
+
+  // ── Action Cards ───────────────────────────────────────────────────────────
+  function act(name: string, value: number, action: ActionCard["action"]): ActionCard {
+    return { id: crypto.randomUUID(), name, type: "action", value, action };
+  }
+
+  // Pass Go x10
+  for (let i = 0; i < 10; i++) {
+    cards.push(act("Pass Go", 1, "passGo"));
+  }
+
+  // It's My Birthday x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("It's My Birthday!", 2, "itsMyBirthday"));
+  }
+
+  // Debt Collector x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("Debt Collector", 3, "debtCollector"));
+  }
+
+  // Sly Deal x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("Sly Deal", 3, "slyDeal"));
+  }
+
+  // Forced Deal x4
+  for (let i = 0; i < 4; i++) {
+    cards.push(act("Forced Deal", 3, "forcedDeal"));
+  }
+
+  // Just Say No x3
+  // for (let i = 0; i < 3; i++) {
+  //   cards.push(act("Just Say No", 4, "justSayNo"));
+  // }
 
   return cards;
 }

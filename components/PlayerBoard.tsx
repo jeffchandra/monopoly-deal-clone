@@ -19,7 +19,6 @@ interface PlayerBoardProps {
   singleNonPropertyNonMoney: boolean;
   canEndTurn: boolean;
   needsDiscard: boolean;
-  discardCount: number;
   pendingPlacements: import("../types/card").PropertyCard[];
   onToggleCard: (cardId: string) => void;
   onAddToSet: (setId: string) => void;
@@ -50,7 +49,6 @@ export function PlayerBoard({
   singleNonPropertyNonMoney,
   canEndTurn,
   needsDiscard,
-  discardCount,
   pendingPlacements,
   onToggleCard,
   onAddToSet,
@@ -133,23 +131,18 @@ export function PlayerBoard({
       </div>
 
       {/* ── Discard banner ── */}
-      {needsDiscard && isViewing && (
+      {isViewing && isMyTurn && player.hand.length > 7 && game.actionsRemaining === 0 && (
         <div className="bg-red-900 border border-red-500 p-2 rounded-lg mb-3 text-xs flex items-center justify-between">
           <span className="text-red-200">
-            Select{" "}
-            <span className="font-bold text-white">{discardCount}</span>{" "}
-            card{discardCount !== 1 ? "s" : ""} to discard
-            {selectedCardIds.length > 0 && (
-              <span className="text-slate-400 ml-1">
-                ({selectedCardIds.length} selected)
-              </span>
-            )}
+            Hand has <span className="font-bold text-white">{player.hand.length}</span> cards —
+            discard down to 7.{" "}
+            <span className="text-slate-400">({player.hand.length - 7} to go)</span>
           </span>
           <button
             onClick={onDiscard}
-            disabled={selectedCardIds.length !== discardCount}
+            disabled={selectedCardIds.length !== 1}
             className={`font-semibold px-3 py-1 rounded-lg ${
-              selectedCardIds.length === discardCount
+              selectedCardIds.length === 1
                 ? "bg-red-600 hover:bg-red-500 text-white"
                 : "bg-red-950 text-red-800 cursor-not-allowed"
             }`}
@@ -393,6 +386,9 @@ export function PlayerBoard({
         <div>
           <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
             Hand ({player.hand.length})
+            {player.hand.length > 7 && game.actionsRemaining === 0 && (
+              <span className="ml-2 text-red-400 font-bold">⚠️ Discard {player.hand.length - 7}</span>
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {player.hand.map(card => {
@@ -408,14 +404,16 @@ export function PlayerBoard({
                   onClick={() => onToggleCard(card.id)}
                   className={`text-xs border rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${
                     isSelected
-                      ? "bg-blue-700 border-blue-400 text-white"
-                      : card.type === "money"
-                        ? "bg-slate-700 border-slate-500 text-emerald-300 hover:border-emerald-500"
-                        : card.type === "property"
-                          ? "bg-slate-700 border-slate-500 text-violet-300 hover:border-violet-500"
-                          : card.type === "rent"
-                            ? "bg-slate-700 border-slate-500 text-red-300 hover:border-red-500"
-                            : "bg-slate-700 border-slate-500 text-yellow-300 hover:border-yellow-500"
+                      ? "bg-red-700 border-red-400 text-white"
+                      : needsDiscard
+                        ? "bg-slate-700 border-red-900 text-slate-300 hover:border-red-500"
+                        : card.type === "money"
+                          ? "bg-slate-700 border-slate-500 text-emerald-300 hover:border-emerald-500"
+                          : card.type === "property"
+                            ? "bg-slate-700 border-slate-500 text-violet-300 hover:border-violet-500"
+                            : card.type === "rent"
+                              ? "bg-slate-700 border-slate-500 text-red-300 hover:border-red-500"
+                              : "bg-slate-700 border-slate-500 text-yellow-300 hover:border-yellow-500"
                   }`}
                 >
                   <div className="flex items-center gap-1">

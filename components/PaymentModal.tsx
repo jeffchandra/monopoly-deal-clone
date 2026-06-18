@@ -90,7 +90,8 @@ export function PaymentModal({
 
         <h2 className="text-xl font-bold text-white mb-1">{kindLabel}</h2>
         <p className="text-slate-400 text-sm mb-4">
-          <span className="text-white font-semibold">{creditor.name}</span> wants{" "}
+          <span className="text-blue-400 font-semibold">{payer.name}</span> owes{" "}
+          <span className="text-white font-semibold">{creditor.name}</span>{" "}
           <span className="text-yellow-400 font-bold">${amountOwed}M</span>.{" "}
           {totalPayable < amountOwed
             ? `You only have $${totalPayable}M — pay everything you have.`

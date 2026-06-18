@@ -6,6 +6,8 @@ import { PaymentModal } from "../components/PaymentModal";
 import { PlayerBoard } from "../components/PlayerBoard";
 import { PropertyCard, RentCard } from "../types/card";
 import { getRentableSetsByCard } from "../lib/propertyUtils";
+import { ActionCardModal } from "../components/ActionCardModal";
+import { ActionCard } from "../types/card";
 
 export default function Page() {
   const {
@@ -24,6 +26,11 @@ export default function Page() {
     doPlayRentCard,
     doConfirmPayment,
     doPlacePendingProperty,
+    doPlayPassGo,
+    doPlayItsMyBirthday,
+    doPlayDebtCollector,
+    doPlaySlyDeal,
+    doPlayForcedDeal,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
@@ -117,17 +124,19 @@ export default function Page() {
     ? (selectedCards[0] as PropertyCard).activeColor
     : null;
 
+  const selectedAction = selectedCards.length === 1 && selectedCards[0].type === "action"
+    ? selectedCards[0] as ActionCard
+    : null;
+
   const rentCard = singleRent ? selectedCards[0] as RentCard : null;
   const rentableSets = rentCard ? getRentableSetsByCard(viewPlayer, rentCard) : [];
 
   const canEndTurn =
-    game.phase === "actionPhase" &&
+    (game.phase === "actionPhase" || game.phase === "discardPhase") &&
     isMyTurn &&
     currentPlayer.pendingPlacements.length === 0 &&
-    (game.actionsRemaining === 0 || currentPlayer.hand.length <= 7);
-
-  const needsDiscard = game.phase === "discardPhase" && isMyTurn;
-  const discardCount = Math.max(0, viewPlayer.hand.length - 7);
+    currentPlayer.hand.length <= 7
+    game.actionsRemaining === 0;
 
   const pendingPayment =
     game.phase === "pendingAction" &&
@@ -137,12 +146,27 @@ export default function Page() {
       game.pendingActions[0].kind === "payDebtCollector")
       ? game.pendingActions[0]
       : null;
+      
+  const needsDiscard = isMyTurn && viewPlayer.hand.length > 7 && game.actionsRemaining === 0;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   function toggleCardSelection(cardId: string) {
+    if (game?.phase === "drawPhase") return;
     const card = viewPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    if (needsDiscard) {
+      setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
+      setSelectedPendingId(null);
+      setSelectedSetId(null);
+      setRentSetId(null);
+      return;
+    }
+
     setSelectedPendingId(null);
+    setSelectedSetId(null);
+    setRentSetId(null);
+
     if (card.type === "property") {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
     } else if (card.type === "money") {
@@ -160,8 +184,6 @@ export default function Page() {
     } else {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
     }
-    setSelectedSetId(null);
-    setRentSetId(null);
   }
 
   function clearSelection() {
@@ -182,11 +204,9 @@ export default function Page() {
 
   function handleDiscard() {
     if (!game) return;
-    const idx = game.players.findIndex(p => p.id === viewingPlayerId);
-    const next = game.players[(idx + 1) % game.players.length];
-    doDiscard(viewingPlayerId, selectedCardIds, () => {
-      setViewingPlayerId(next.id);
-      clearSelection();
+    if (selectedCardIds.length !== 1) return;
+    doDiscard(viewingPlayerId, selectedCardIds[0], () => {
+      setSelectedCardIds([]);
     });
   }
 
@@ -213,6 +233,63 @@ export default function Page() {
       clearSelection();
       if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
     });
+  }
+
+  function handlePlayPassGo(cardId: string) {
+    doPlayPassGo(viewPlayer.id, cardId);
+  }
+
+  function handlePlayBirthday(cardId: string) {
+    if (!game) return;
+    const opponents = game.players.filter(p => p.id !== viewPlayer.id);
+    doPlayItsMyBirthday(viewPlayer.id, cardId, () => {
+      if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
+    });
+  }
+
+  function handlePlayDebtCollector(cardId: string, targetPlayerId: string) {
+    doPlayDebtCollector(viewPlayer.id, cardId, targetPlayerId, () => {
+      setViewingPlayerId(targetPlayerId);
+    });
+  }
+
+  function handlePlaySlyDeal(
+    cardId: string,
+    targetPlayerId: string,
+    targetSetId: string,
+    targetCardId: string
+  ) {
+    doPlaySlyDeal(
+      viewPlayer.id,
+      cardId,
+      targetPlayerId,
+      targetSetId,
+      targetCardId
+    );
+  }
+
+  function handlePlayForcedDeal(
+    cardId: string,
+    targetPlayerId: string,
+    targetSetId: string,
+    targetCardId: string,
+    offeredSetId: string,
+    offeredCardId: string
+  ) {
+    const actingPlayerId = viewPlayer.id;
+    doPlayForcedDeal(
+      viewPlayer.id,
+      cardId,
+      targetPlayerId,
+      targetSetId,
+      targetCardId,
+      offeredSetId,
+      offeredCardId,
+      () => {
+        setSelectedCardIds([]);
+        setViewingPlayerId(actingPlayerId);
+      }
+    );
   }
 
   // ── Game over ───────────────────────────────────────────────────────────────
@@ -283,6 +360,31 @@ export default function Page() {
           />
         )}
 
+        {/* Action card modal */}
+        {selectedAction && isMyTurn && game.phase === "actionPhase" && !needsDiscard && (
+          <ActionCardModal
+            game={game}
+            card={selectedAction}
+            playerId={viewPlayer.id}
+            onPlayPassGo={() => handlePlayPassGo(selectedAction.id)}
+            onPlayBirthday={() => handlePlayBirthday(selectedAction.id)}
+            onPlayDebtCollector={targetPlayerId =>
+              handlePlayDebtCollector(selectedAction.id, targetPlayerId)
+            }
+            onPlaySlyDeal={(targetPlayerId, targetSetId, targetCardId) =>
+              handlePlaySlyDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId)
+            }
+            onPlayForcedDeal={(targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId) =>
+              handlePlayForcedDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId)
+            }
+            onBank={() => {
+              doBankCards(viewPlayer.id, [selectedAction.id]);
+              setSelectedCardIds([]);
+            }}
+            onCancel={() => setSelectedCardIds([])}
+          />
+        )}
+
         <GameHeader
           game={game}
           currentPlayer={currentPlayer}
@@ -327,8 +429,7 @@ export default function Page() {
             singleRent={singleRent}
             singleNonPropertyNonMoney={singleNonPropertyNonMoney}
             canEndTurn={canEndTurn}
-            needsDiscard={needsDiscard}
-            discardCount={discardCount}
+            needsDiscard={player.id === viewPlayer.id && needsDiscard}
             pendingPlacements={player.pendingPlacements}
             onToggleCard={toggleCardSelection}
             selectedPendingId={player.id === viewPlayer.id ? selectedPendingId : null}

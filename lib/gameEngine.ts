@@ -112,11 +112,8 @@ export function endTurn(game: Game): void {
   if (game.phase === "pendingAction") {
     throw new Error("Cannot end turn — waiting for action response");
   }
-  if (game.phase !== "actionPhase") {
+  if (game.phase !== "actionPhase" && game.phase !== "discardPhase") {
     throw new Error("Not in action phase");
-  }
-  if (game.actionsRemaining > 0 && getCurrentPlayer(game).hand.length > 7) {
-    throw new Error("You still have actions remaining");
   }
 
   const player = getCurrentPlayer(game);
@@ -126,9 +123,7 @@ export function endTurn(game: Game): void {
   }
 
   if (player.hand.length > 7) {
-    game.phase = "discardPhase";
-    addLog(game, `${player.name} has ${player.hand.length} cards — must discard down to 7.`);
-    return;
+    throw new Error("You must discard down to 7 cards first");
   }
 
   advanceToNextPlayer(game);
@@ -142,24 +137,15 @@ function advanceToNextPlayer(game: Game): void {
   addLog(game, `It's ${next.name}'s turn.`);
 }
 
-export function discard(game: Game, playerId: string, cardIds: string[]): void {
-  if (game.phase !== "discardPhase") throw new Error("Not in discard phase");
+export function discard(game: Game, playerId: string, cardId: string): void {
+  if (game.currentPlayerId !== playerId) throw new Error("Not your turn");
 
   const player = getPlayerById(game, playerId);
-  const target = player.hand.length - 7;
+  const idx = player.hand.findIndex(c => c.id === cardId);
+  if (idx === -1) throw new Error("Card not found in hand");
 
-  if (cardIds.length !== target) {
-    throw new Error(`Must discard exactly ${target} card(s)`);
-  }
-
-  for (const id of cardIds) {
-    const idx = player.hand.findIndex(c => c.id === id);
-    if (idx === -1) throw new Error("Card not found in hand");
-    game.discardPile.push(player.hand.splice(idx, 1)[0]);
-  }
-
-  addLog(game, `${player.name} discarded ${cardIds.length} card(s).`);
-  advanceToNextPlayer(game);
+  game.discardPile.push(player.hand.splice(idx, 1)[0]);
+  addLog(game, `${player.name} discarded a card.`);
 }
 
 export function placePropertyAsNewSet(
@@ -422,5 +408,192 @@ export function placePendingProperty(
   }
 
   addLog(game, `${player.name} placed ${card.name}.`);
+  checkWinCondition(game);
+}
+
+export function playPassGo(
+  game: Game,
+  playerId: string,
+  cardId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  drawCard(game, playerId);
+  drawCard(game, playerId);
+
+  addLog(game, `${player.name} played Pass Go — drew 2 cards.`);
+}
+
+export function playItsMyBirthday(
+  game: Game,
+  playerId: string,
+  cardId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  const opponents = getOpponents(game, playerId);
+  for (const opponent of opponents) {
+    game.pendingActions.push({
+      kind: "payBirthday",
+      fromPlayerId: opponent.id,
+      toPlayerId: playerId,
+      amountOwed: 2,
+      selectedCardIds: [],
+      blocked: false,
+    });
+  }
+
+  game.phase = "pendingAction";
+  addLog(game, `🎂 ${player.name} played It's My Birthday! Everyone pays $2M.`);
+}
+
+export function playDebtCollector(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  targetPlayerId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const target = getPlayerById(game, targetPlayerId);
+
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  game.pendingActions.push({
+    kind: "payDebtCollector",
+    fromPlayerId: target.id,
+    toPlayerId: playerId,
+    amountOwed: 5,
+    selectedCardIds: [],
+    blocked: false,
+  });
+
+  game.phase = "pendingAction";
+  addLog(game, `${player.name} hit ${target.name} with Debt Collector — pay $5M.`);
+}
+
+export function playSlyDeal(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  targetPlayerId: string,
+  targetSetId: string,
+  targetCardId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const target = getPlayerById(game, targetPlayerId);
+
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const targetSet = target.propertySets.find(s => s.id === targetSetId);
+  if (!targetSet) throw new Error("Target set not found");
+  if (isSetComplete(targetSet)) throw new Error("Cannot steal from a complete set");
+
+  const stolenCardIdx = targetSet.properties.findIndex(c => c.id === targetCardId);
+  if (stolenCardIdx === -1) throw new Error("Target card not found in set");
+
+  // Remove card from hand and discard
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  // Remove stolen card from target's set
+  const stolenCard = targetSet.properties.splice(stolenCardIdx, 1)[0];
+  if (targetSet.properties.length === 0) {
+    target.propertySets = target.propertySets.filter(s => s.id !== targetSetId);
+  }
+
+  // Add to pending placements so player can choose where to put it
+  player.pendingPlacements.push(stolenCard);
+
+  addLog(game, `${player.name} sly dealt ${stolenCard.name} from ${target.name}.`);
+  checkWinCondition(game);
+}
+
+export function playForcedDeal(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  targetPlayerId: string,
+  targetSetId: string,
+  targetCardId: string,
+  offeredSetId: string,
+  offeredCardId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const target = getPlayerById(game, targetPlayerId);
+
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  // Validate target set
+  const targetSet = target.propertySets.find(s => s.id === targetSetId);
+  if (!targetSet) throw new Error("Target set not found");
+  if (isSetComplete(targetSet)) throw new Error("Cannot steal from a complete set");
+
+  const targetCardIdx = targetSet.properties.findIndex(c => c.id === targetCardId);
+  if (targetCardIdx === -1) throw new Error("Target card not found in set");
+
+  // Validate offered set
+  const offeredSet = player.propertySets.find(s => s.id === offeredSetId);
+  if (!offeredSet) throw new Error("Offered set not found");
+  if (isSetComplete(offeredSet)) throw new Error("Cannot give away a card from a complete set");
+
+  const offeredCardIdx = offeredSet.properties.findIndex(c => c.id === offeredCardId);
+  if (offeredCardIdx === -1) throw new Error("Offered card not found in set");
+
+  // Remove card from hand and discard
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  // Swap the cards
+  const takenCard = targetSet.properties.splice(targetCardIdx, 1)[0];
+  if (targetSet.properties.length === 0) {
+    target.propertySets = target.propertySets.filter(s => s.id !== targetSetId);
+  }
+
+  const givenCard = offeredSet.properties.splice(offeredCardIdx, 1)[0];
+  if (offeredSet.properties.length === 0) {
+    player.propertySets = player.propertySets.filter(s => s.id !== offeredSetId);
+  }
+
+  // Both go to pending placements so players can choose where to put them
+  player.pendingPlacements.push(takenCard);
+  target.pendingPlacements.push(givenCard);
+
+  addLog(game, `${player.name} forced a deal — swapped ${givenCard.name} for ${takenCard.name} from ${target.name}.`);
   checkWinCondition(game);
 }
