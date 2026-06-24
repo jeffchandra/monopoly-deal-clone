@@ -18,9 +18,11 @@ import {
   playForcedDeal,
   playHouse,
   playHotel,
+  playWildRent,
   getCurrentPlayer,
   getPayableSources,
   confirmPayment,
+  movePropertyBetweenSets,
 } from "../lib/gameEngine";
 import { Game } from "../types/game";
 import { Card } from "../types/card";
@@ -97,12 +99,16 @@ export function useGame() {
     update(g => placePropertyIntoSet(g, playerId, cardId, setId));
   }
 
-  function doPlayRentCard(playerId: string, cardId: string, setId: string, onSuccess: () => void, doubleRentCardId?: string) {
-    update(g => playRentCard(g, playerId, cardId, setId, doubleRentCardId), onSuccess);
-  }
-
   function doPlacePendingProperty(playerId: string, cardId: string, targetSetId: string | null) {
     update(g => placePendingProperty(g, playerId, cardId, targetSetId));
+  }
+
+  function doMovePropertyBetweenSets(playerId: string, cardId: string, fromSetId: string, toSetId: string) {
+    update(g => movePropertyBetweenSets(g, playerId, cardId, fromSetId, toSetId));
+  }
+
+  function doPlayRentCard(playerId: string, cardId: string, setId: string, onSuccess: () => void, doubleRentCardId?: string, targetPlayerId?: string) {
+    update(g => playRentCard(g, playerId, cardId, setId, doubleRentCardId), onSuccess);
   }
 
   function doConfirmPayment(playerId: string, cardIds: string[], onSuccess: () => void) {
@@ -162,6 +168,10 @@ export function useGame() {
     update(g => playHotel(g, playerId, cardId, setId));
   }
 
+  function doPlayWildRent(playerId: string, cardId: string, setId: string, targetPlayerId: string, onSuccess: () => void, doubleRentCardId?: string) {
+    update(g => playWildRent(g, playerId, cardId, setId, targetPlayerId, doubleRentCardId), onSuccess);
+  }
+
   return {
     game,
     error,
@@ -176,9 +186,10 @@ export function useGame() {
     doBankCards,
     doPlacePropertyAsNewSet,
     doPlacePropertyIntoSet,
+    doPlacePendingProperty,
+    doMovePropertyBetweenSets,
     doPlayRentCard,
     doConfirmPayment,
-    doPlacePendingProperty,
     doPlayPassGo,
     doPlayItsMyBirthday,
     doPlayDebtCollector,
@@ -186,6 +197,7 @@ export function useGame() {
     doPlayForcedDeal,
     doPlayHouse,
     doPlayHotel,
+    doPlayWildRent,
     reset,
   }
 }

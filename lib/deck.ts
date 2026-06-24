@@ -134,8 +134,13 @@ export function createDeck(): Card[] {
   }
 
   // Double Rent x2
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 2; i++) {
     cards.push(act("Double Rent", 2, "doubleRent"));
+  }
+
+  // Wild Rent x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("Wild Rent", 3, "rentWild"));
   }
   
   // Just Say No x3

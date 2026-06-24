@@ -23,9 +23,10 @@ export default function Page() {
     doBankCards,
     doPlacePropertyAsNewSet,
     doPlacePropertyIntoSet,
+    doPlacePendingProperty,
+    doMovePropertyBetweenSets,
     doPlayRentCard,
     doConfirmPayment,
-    doPlacePendingProperty,
     doPlayPassGo,
     doPlayItsMyBirthday,
     doPlayDebtCollector,
@@ -33,6 +34,7 @@ export default function Page() {
     doPlayForcedDeal,
     doPlayHouse,
     doPlayHotel,
+    doPlayWildRent,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
@@ -43,6 +45,9 @@ export default function Page() {
   const [playerNames, setPlayerNames] = useState<string[]>(["Alice", "Bob"]);
   const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
   const [doubleRentCardId, setDoubleRentCardId] = useState<string | null>(null);
+  const [selectedBoardCardId, setSelectedBoardCardId] = useState<string | null>(null);
+  const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
+  const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
 
   // ── Setup screen ────────────────────────────────────────────────────────────
   if (!game) {
@@ -122,17 +127,38 @@ export default function Page() {
     selectedCards.length === 1 &&
     selectedCards[0].type !== "property" &&
     selectedCards[0].type !== "money";
+  const singleWildRent = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "rentWild";
+
+  const singleHouse = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "house";
+
+  const singleHotel = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "hotel";
+
+  const singleDoubleRent = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "doubleRent";
 
   const selectedPropertyColor = singleProperty
     ? (selectedCards[0] as PropertyCard).activeColor
     : null;
 
-  const selectedAction = selectedCards.length === 1 && selectedCards[0].type === "action"
+  const selectedAction = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action !== "rentWild" &&
+    (selectedCards[0] as ActionCard).action !== "house" &&
+    (selectedCards[0] as ActionCard).action !== "hotel" &&
+    (selectedCards[0] as ActionCard).action !== "doubleRent"
     ? selectedCards[0] as ActionCard
     : null;
 
   const rentCard = singleRent ? selectedCards[0] as RentCard : null;
-  const rentableSets = rentCard ? getRentableSetsByCard(viewPlayer, rentCard) : [];
+  const rentableSets = rentCard ? getRentableSetsByCard(viewPlayer, rentCard) :
+    singleWildRent ? viewPlayer.propertySets : [];
 
   const canEndTurn =
     (game.phase === "actionPhase" || game.phase === "discardPhase") &&
@@ -194,6 +220,9 @@ export default function Page() {
     setSelectedSetId(null);
     setRentSetId(null);
     setDoubleRentCardId(null);
+    setSelectedBoardCardId(null);
+    setSelectedBoardSetId(null);
+    setWildRentTargetPlayerId(null);
   }
 
   function handleEndTurn() {
@@ -302,6 +331,24 @@ export default function Page() {
     );
   }
 
+  function handlePlayWildRent() {
+    if (!game || !rentSetId) return;
+    const opponents = game.players.filter(p => p.id !== viewPlayer.id);
+    const target = wildRentTargetPlayerId ?? (opponents.length === 1 ? opponents[0].id : null);
+    if (!target) return;
+    doPlayWildRent(
+      viewPlayer.id,
+      selectedCardIds[0],
+      rentSetId,
+      target,
+      () => {
+        clearSelection();
+        setViewingPlayerId(target);
+      },
+      doubleRentCardId ?? undefined
+    );
+  }
+
   // ── Game over ───────────────────────────────────────────────────────────────
   if (game.phase === "gameOver") {
     const winner = game.players.find(p => p.id === game.winnerId)!;
@@ -395,6 +442,20 @@ export default function Page() {
               doPlayHotel(viewPlayer.id, selectedAction.id, setId);
               setSelectedCardIds([]);
             }}
+            onPlayWildRent={(setId, targetPlayerId) => {
+              const opponents = game.players.filter(p => p.id !== viewPlayer.id);
+              doPlayRentCard(
+                viewPlayer.id,
+                selectedAction.id,
+                setId,
+                () => {
+                  setSelectedCardIds([]);
+                  if (opponents.length > 0) setViewingPlayerId(targetPlayerId);
+                },
+                undefined,
+                targetPlayerId
+              );
+            }}
             onBank={() => {
               doBankCards(viewPlayer.id, [selectedAction.id]);
               setSelectedCardIds([]);
@@ -446,11 +507,17 @@ export default function Page() {
             allMoney={allMoney}
             singleRent={singleRent}
             singleNonPropertyNonMoney={singleNonPropertyNonMoney}
+            singleWildRent={singleWildRent}
+            singleHouse={singleHouse}
+            singleHotel={singleHotel}
+            singleDoubleRent={singleDoubleRent}
             canEndTurn={canEndTurn}
             needsDiscard={player.id === viewPlayer.id && needsDiscard}
             pendingPlacements={player.pendingPlacements}
             onToggleCard={toggleCardSelection}
             selectedPendingId={player.id === viewPlayer.id ? selectedPendingId : null}
+            doubleRentCardId={doubleRentCardId}
+            wildRentTargetPlayerId={wildRentTargetPlayerId}
             onSelectPending={id => {
               setSelectedPendingId(id === selectedPendingId ? null : id)
               setSelectedCardIds([]);
@@ -479,10 +546,40 @@ export default function Page() {
             onPlacePending={(cardId, targetSetId) =>
               doPlacePendingProperty(player.id, cardId, targetSetId)
             }
-            doubleRentCardId={doubleRentCardId}
+            onSetWildRentTarget={id =>
+              setWildRentTargetPlayerId(prev => prev === id ? null : id)
+            }
+            onPlayWildRent={handlePlayWildRent}
             onToggleDoubleRent={cardId =>
               setDoubleRentCardId(prev => prev === cardId ? null : cardId)
             }
+            selectedBoardCardId={player.id === viewPlayer.id ? selectedBoardCardId : null}
+            selectedBoardSetId={player.id === viewPlayer.id ? selectedBoardSetId : null}
+            onSelectBoardCard={(cardId, setId) => {
+              if (selectedBoardCardId === cardId) {
+                setSelectedBoardCardId(null);
+                setSelectedBoardSetId(null);
+              } else {
+                setSelectedBoardCardId(cardId);
+                setSelectedBoardSetId(setId);
+                setSelectedCardIds([]);
+                setSelectedPendingId(null);
+              }
+            }}
+            onMoveToSet={toSetId => {
+              if (!selectedBoardCardId || !selectedBoardSetId) return;
+              doMovePropertyBetweenSets(viewPlayer.id, selectedBoardCardId, selectedBoardSetId, toSetId);
+              setSelectedBoardCardId(null);
+              setSelectedBoardSetId(null);
+            }}
+            onAddHouse={setId => {
+              doPlayHouse(viewPlayer.id, selectedCardIds[0], setId);
+              clearSelection();
+            }}
+            onAddHotel={setId => {
+              doPlayHotel(viewPlayer.id, selectedCardIds[0], setId);
+              clearSelection();
+            }}
           />
         ))}
 

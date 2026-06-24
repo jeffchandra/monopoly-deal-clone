@@ -22,6 +22,13 @@ interface PlayerBoardProps {
   selectedPendingId: string | null;
   pendingPlacements: import("../types/card").PropertyCard[];
   doubleRentCardId: string | null;
+  selectedBoardCardId: string | null;
+  selectedBoardSetId: string | null;
+  singleWildRent: boolean;
+  wildRentTargetPlayerId: string | null;
+  singleHouse: boolean;
+  singleHotel: boolean;
+  singleDoubleRent: boolean;
   onToggleCard: (cardId: string) => void;
   onAddToSet: (setId: string) => void;
   onNewSet: () => void;
@@ -34,6 +41,12 @@ interface PlayerBoardProps {
   onPlacePending: (cardId: string, targetSetId: string | null) => void;
   onSelectPending: (cardId: string) => void;
   onToggleDoubleRent: (cardId: string) => void;
+  onSelectBoardCard: (cardId: string, setId: string) => void;
+  onMoveToSet: (toSetId: string) => void;
+  onSetWildRentTarget: (id: string) => void;
+  onPlayWildRent: () => void;
+  onAddHouse: (setId: string) => void;
+  onAddHotel: (setId: string) => void;
 }
 
 export function PlayerBoard({
@@ -54,6 +67,13 @@ export function PlayerBoard({
   selectedPendingId,
   pendingPlacements,
   doubleRentCardId,
+  selectedBoardCardId,
+  selectedBoardSetId,
+  singleWildRent,
+  wildRentTargetPlayerId,
+  singleHouse,
+  singleHotel,
+  singleDoubleRent,
   onToggleCard,
   onAddToSet,
   onNewSet,
@@ -65,7 +85,13 @@ export function PlayerBoard({
   onDiscard,
   onPlacePending,
   onSelectPending,
-  onToggleDoubleRent
+  onToggleDoubleRent,
+  onSelectBoardCard,
+  onMoveToSet,
+  onSetWildRentTarget,
+  onPlayWildRent,
+  onAddHouse,
+  onAddHotel,
 }: PlayerBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
   const singleProperty =
@@ -233,12 +259,10 @@ export function PlayerBoard({
               {player.propertySets.map(set => {
                 const complete = isSetComplete(set);
                 const rule = PROPERTY_RULES[set.color];
-
                 const selectedPendingCard = pendingPlacements.find(c => c.id === selectedPendingId) ?? null;
 
                 const isMatchingColor =
                   isViewing &&
-                  isMyTurn &&
                   !complete &&
                   (game.phase === "actionPhase" || game.phase === "pendingAction") &&
                   (
@@ -250,10 +274,42 @@ export function PlayerBoard({
                   isViewing &&
                   isMyTurn &&
                   game.phase === "actionPhase" &&
-                  singleRentSelected &&
-                  rentableSets.some(s => s.id === set.id);
+                  (
+                    (singleRentSelected && rentableSets.some(s => s.id === set.id)) ||
+                    singleWildRent
+                  );
 
                 const isSelectedRentSet = set.id === rentSetId;
+
+                const isMoveTarget =
+                  isViewing &&
+                  isMyTurn &&
+                  selectedBoardCardId !== null &&
+                  selectedBoardSetId !== null &&
+                  set.id !== selectedBoardSetId &&
+                  set.color === (player.propertySets.find(s => s.id === selectedBoardSetId)?.color) &&
+                  !complete;
+
+                const isHouseTarget =
+                  isViewing &&
+                  isMyTurn &&
+                  game.phase === "actionPhase" &&
+                  singleHouse &&
+                  isSetComplete(set) &&
+                  !set.hasHouse &&
+                  set.color !== "railroad" &&
+                  set.color !== "utility";
+
+                const isHotelTarget =
+                  isViewing &&
+                  isMyTurn &&
+                  game.phase === "actionPhase" &&
+                  singleHotel &&
+                  isSetComplete(set) &&
+                  set.hasHouse &&
+                  !set.hasHotel &&
+                  set.color !== "railroad" &&
+                  set.color !== "utility";
 
                 return (
                   <div
@@ -266,11 +322,17 @@ export function PlayerBoard({
                         ? "border-red-400 bg-red-900/30 cursor-pointer"
                         : isRentTarget
                           ? "border-red-600 bg-red-900/20 cursor-pointer hover:border-red-400"
-                          : isMatchingColor
-                            ? "border-violet-400 bg-violet-900/30"
-                            : complete
-                              ? "border-yellow-600 bg-slate-700"
-                              : "border-slate-500 bg-slate-700"
+                          : isMoveTarget
+                            ? "border-blue-400 bg-blue-900/30 cursor-pointer hover:border-blue-300"
+                            : isHouseTarget
+                              ? "border-emerald-400 bg-emerald-900/20"
+                              : isHotelTarget
+                                ? "border-yellow-400 bg-yellow-900/20"
+                                : isMatchingColor
+                                  ? "border-violet-400 bg-violet-900/30"
+                                  : complete
+                                    ? "border-yellow-600 bg-slate-700"
+                                    : "border-slate-500 bg-slate-700"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 font-semibold text-white mb-1">
@@ -282,13 +344,24 @@ export function PlayerBoard({
                       <span className="text-slate-400 font-normal">
                         {set.properties.length}/{rule.setSize}
                       </span>
-                      {complete && (
-                        <span className="text-yellow-400 ml-1">✓</span>
-                      )}
+                      {complete && <span className="text-yellow-400 ml-1">✓</span>}
+                      {set.hasHouse && <span className="ml-1">🏠</span>}
+                      {set.hasHotel && <span className="ml-1">🏨</span>}
                       {isRentTarget && (
                         <span className="ml-auto text-red-300 font-normal">
                           ${getRentForSet(set)}M rent
                         </span>
+                      )}
+                      {isMoveTarget && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            onMoveToSet(set.id);
+                          }}
+                          className="ml-auto bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded text-xs font-semibold"
+                        >
+                          Move here
+                        </button>
                       )}
                       {isMatchingColor && (
                         <button
@@ -306,44 +379,137 @@ export function PlayerBoard({
                           Add
                         </button>
                       )}
+                      {isHouseTarget && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            onAddHouse(set.id);
+                          }}
+                          className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded text-xs font-semibold"
+                        >
+                          🏠 Add House
+                        </button>
+                      )}
+                      {isHotelTarget && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            onAddHotel(set.id);
+                          }}
+                          className="ml-2 bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-0.5 rounded text-xs font-semibold"
+                        >
+                          🏨 Add Hotel
+                        </button>
+                      )}
                     </div>
-                    <div className="text-slate-400 leading-tight">
-                      {set.properties.map(p => p.name).join(", ")}
+                    {/* Individual property cards — clickable for combining sets */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {set.properties.map(prop => {
+                        const isSelectedBoardCard = selectedBoardCardId === prop.id;
+                        const canSelect =
+                          isViewing &&
+                          isMyTurn &&
+                          !complete &&
+                          game.phase === "actionPhase";
+
+                        return (
+                          <div
+                            key={prop.id}
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (canSelect) onSelectBoardCard(prop.id, set.id);
+                            }}
+                            className={`text-xs border rounded px-1.5 py-0.5 transition-colors ${
+                              isSelectedBoardCard
+                                ? "bg-blue-700 border-blue-400 text-white cursor-pointer"
+                                : canSelect
+                                  ? "bg-slate-600 border-slate-500 text-slate-300 hover:border-blue-500 cursor-pointer"
+                                  : "bg-slate-600 border-slate-500 text-slate-300"
+                            }`}
+                          >
+                            {prop.name}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Charge Rent — below sets */}
-            {isMyTurn && isViewing && game.phase === "actionPhase" && singleRentSelected && rentSetId && (
-              <div className="mt-2 flex flex-wrap gap-2 items-center">
-                {/* Double Rent toggle — only show if player has one */}
-                {(() => {
-                  const doubleRentCard = player.hand.find(
-                    c => c.type === "action" &&
-                    (c as import("../types/card").ActionCard).action === "doubleRent" &&
-                    c.id !== selectedCardIds[0]
-                  );
-                  return doubleRentCard ? (
+            {/* Charge Rent / Wild Rent — below sets */}
+            {isMyTurn && isViewing && game.phase === "actionPhase" &&
+              (singleRentSelected || singleWildRent) && rentSetId && (
+              <div className="mt-2">
+                {/* Opponent picker for Wild Rent */}
+                {singleWildRent && game.players.filter(p => p.id !== player.id).length > 1 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <span className="text-xs text-slate-400 self-center">Charge who:</span>
+                    {game.players.filter(p => p.id !== player.id).map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => onSetWildRentTarget(p.id)}
+                        className={`px-2 py-0.5 rounded text-xs font-semibold border transition-colors ${
+                          wildRentTargetPlayerId === p.id
+                            ? "bg-emerald-700 border-emerald-400 text-white"
+                            : "bg-slate-700 border-slate-500 text-slate-300 hover:border-slate-300"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 items-center">
+                  {/* Double Rent toggle */}
+                  {(() => {
+                    const doubleRentCard = player.hand.find(
+                      c => c.type === "action" &&
+                      (c as import("../types/card").ActionCard).action === "doubleRent" &&
+                      c.id !== selectedCardIds[0]
+                    );
+                    return doubleRentCard ? (
+                      <button
+                        onClick={() => onToggleDoubleRent(doubleRentCard.id)}
+                        className={`font-semibold px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                          doubleRentCardId === doubleRentCard.id
+                            ? "bg-yellow-600 border-yellow-400 text-white"
+                            : "bg-slate-700 border-slate-500 text-yellow-300 hover:border-yellow-400"
+                        }`}
+                      >
+                        {doubleRentCardId ? "✓ Double Rent" : "Double Rent?"}
+                      </button>
+                    ) : null;
+                  })()}
+
+                  {/* Charge button */}
+                  {singleRentSelected && (
                     <button
-                      onClick={() => onToggleDoubleRent(doubleRentCard.id)}
-                      className={`font-semibold px-3 py-1.5 rounded-lg text-xs border transition-colors ${
-                        doubleRentCardId === doubleRentCard.id
-                          ? "bg-yellow-600 border-yellow-400 text-white"
-                          : "bg-slate-700 border-slate-500 text-yellow-300 hover:border-yellow-400"
-                      }`}
+                      onClick={onPlayRent}
+                      className="bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
                     >
-                      {doubleRentCardId ? "✓ Double Rent" : "Double Rent?"}
+                      💸 Charge Rent{doubleRentCardId ? " (×2)" : ""}
                     </button>
-                  ) : null;
-                })()}
-                <button
-                  onClick={onPlayRent}
-                  className="bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-                >
-                  💸 Charge Rent{doubleRentCardId ? " (×2)" : ""}
-                </button>
+                  )}
+                  {singleWildRent && (
+                    <button
+                      onClick={onPlayWildRent}
+                      disabled={
+                        game.players.filter(p => p.id !== player.id).length > 1 &&
+                        !wildRentTargetPlayerId
+                      }
+                      className="bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                    >
+                      💸 Wild Rent{doubleRentCardId ? " (×2)" : ""}
+                      {wildRentTargetPlayerId
+                        ? ` → ${game.players.find(p => p.id === wildRentTargetPlayerId)?.name}`
+                        : game.players.filter(p => p.id !== player.id).length === 1
+                          ? ` → ${game.players.find(p => p.id !== player.id)?.name}`
+                          : ""}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

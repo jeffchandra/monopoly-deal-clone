@@ -325,7 +325,8 @@ export function playRentCard(
   playerId: string,
   cardId: string,
   setId: string,
-  doubleRentCardId?: string
+  doubleRentCardId?: string,
+  targetPlayerId?: string  // if provided, only charge this player (Wild Rent)
 ): void {
   if (game.phase !== "actionPhase") throw new Error("Not in action phase");
   if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
@@ -361,7 +362,9 @@ export function playRentCard(
   }
 
   const amount = getRentForSet(set) * multiplier;
-  const opponents = getOpponents(game, playerId);
+  const opponents = targetPlayerId
+    ? [getPlayerById(game, targetPlayerId)]
+    : getOpponents(game, playerId);
 
   player.hand.splice(cardIdx, 1);
   game.discardPile.push(rentCard);
@@ -381,7 +384,10 @@ export function playRentCard(
   game.phase = "pendingAction";
   addLog(
     game,
-    `${player.name} charged $${amount}M rent on ${PROPERTY_RULES[set.color].displayName}${multiplier === 2 ? " (doubled!)" : ""}.`
+    `${player.name} charged ${targetPlayerId
+      ? getPlayerById(game, targetPlayerId).name
+      : "everyone"
+    } $${amount}M rent on ${PROPERTY_RULES[set.color].displayName}${multiplier === 2 ? " (doubled!)" : ""}.`
   );
 }
 
@@ -663,4 +669,89 @@ export function playHotel(
   game.actionsRemaining--;
 
   addLog(game, `${player.name} added a hotel to their ${PROPERTY_RULES[set.color].displayName} set. Rent is now $${getRentForSet(set)}M.`);
+}
+
+export function movePropertyBetweenSets(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  fromSetId: string,
+  toSetId: string
+): void {
+  const player = getPlayerById(game, playerId);
+
+  const fromSet = player.propertySets.find(s => s.id === fromSetId);
+  if (!fromSet) throw new Error("Source set not found");
+  if (isSetComplete(fromSet)) throw new Error("Cannot move a card from a complete set");
+
+  const toSet = player.propertySets.find(s => s.id === toSetId);
+  if (!toSet) throw new Error("Destination set not found");
+  if (isSetComplete(toSet)) throw new Error("Cannot move a card into a complete set");
+  if (fromSet.color !== toSet.color) throw new Error("Sets must be the same color");
+
+  const cardIdx = fromSet.properties.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in source set");
+
+  const card = fromSet.properties.splice(cardIdx, 1)[0];
+  if (fromSet.properties.length === 0) {
+    player.propertySets = player.propertySets.filter(s => s.id !== fromSetId);
+  }
+
+  toSet.properties.push(card);
+  addLog(game, `${player.name} moved ${card.name} between ${PROPERTY_RULES[toSet.color].displayName} sets.`);
+}
+
+export function playWildRent(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  setId: string,
+  targetPlayerId: string,
+  doubleRentCardId?: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const card = player.hand[cardIdx];
+  if (card.type !== "action") throw new Error("Card is not a Wild Rent card");
+
+  const set = player.propertySets.find(s => s.id === setId);
+  if (!set) throw new Error("Set not found");
+
+  const target = getPlayerById(game, targetPlayerId);
+
+  // Handle double rent
+  let multiplier = 1;
+  if (doubleRentCardId) {
+    const doubleIdx = player.hand.findIndex(c => c.id === doubleRentCardId);
+    if (doubleIdx === -1) throw new Error("Double Rent card not found in hand");
+    const doubleCard = player.hand.splice(doubleIdx, 1)[0];
+    game.discardPile.push(doubleCard);
+    multiplier = 2;
+  }
+
+  const amount = getRentForSet(set) * multiplier;
+
+  player.hand.splice(cardIdx, 1);
+  game.discardPile.push(card);
+  game.actionsRemaining--;
+
+  game.pendingActions.push({
+    kind: "payRent",
+    fromPlayerId: target.id,
+    toPlayerId: playerId,
+    amountOwed: amount,
+    selectedCardIds: [],
+    blocked: false,
+  });
+
+  game.phase = "pendingAction";
+  addLog(
+    game,
+    `${player.name} charged ${target.name} $${amount}M Wild Rent on ${PROPERTY_RULES[set.color].displayName}${multiplier === 2 ? " (doubled!)" : ""}.`
+  );
 }

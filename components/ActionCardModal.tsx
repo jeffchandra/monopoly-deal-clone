@@ -16,6 +16,7 @@ interface ActionCardModalProps {
   onPlayForcedDeal: (targetPlayerId: string, targetSetId: string, targetCardId: string, offeredSetId: string, offeredCardId: string) => void;
   onPlayHouse: (setId: string) => void;
   onPlayHotel: (setId: string) => void;
+  onPlayWildRent: (setId: string, targetPlayerId: string) => void;
   onBank: () => void;
   onCancel: () => void;
 }
@@ -29,6 +30,7 @@ export function ActionCardModal({
   onPlayDebtCollector,
   onPlaySlyDeal,
   onPlayForcedDeal,
+  onPlayWildRent,
   onPlayHouse,
   onPlayHotel,
   onBank,
@@ -43,6 +45,8 @@ export function ActionCardModal({
   const [targetCardId, setTargetCardId] = useState<string | null>(null);
   const [offeredSetId, setOfferedSetId] = useState<string | null>(null);
   const [offeredCardId, setOfferedCardId] = useState<string | null>(null);
+  const [wildRentSetId, setWildRentSetId] = useState<string | null>(null);
+  const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
 
   const player = game.players.find(p => p.id === playerId)!;
   const opponents = game.players.filter(p => p.id !== playerId);
@@ -475,6 +479,86 @@ export function ActionCardModal({
           </div>
         )}
 
+        {/* Wild Rent */}
+        {card.action === "rentWild" && (
+          <div>
+            <p className="text-slate-300 text-sm mb-3">
+              Choose one of your sets and one opponent to charge:
+            </p>
+
+            {/* Set selector */}
+            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+              Your set to charge rent on:
+            </div>
+            {player.propertySets.length === 0 ? (
+              <p className="text-xs text-slate-500 mb-4">You have no properties.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {player.propertySets.map(set => {
+                  const rule = PROPERTY_RULES[set.color];
+                  return (
+                    <div
+                      key={set.id}
+                      onClick={() => setWildRentSetId(set.id === wildRentSetId ? null : set.id)}
+                      className={`text-xs border rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                        wildRentSetId === set.id
+                          ? "border-red-400 bg-red-900/30"
+                          : "border-slate-500 bg-slate-700 hover:border-red-500"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-white">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: rule.color }} />
+                        <span>{rule.displayName}</span>
+                        <span className="text-slate-400 font-normal">({set.properties.length})</span>
+                        {wildRentSetId === set.id && (
+                          <span className="text-red-300 ml-1">
+                            ${getRentForSet(set)}M rent
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Opponent selector */}
+            {opponents.length > 1 && (
+              <>
+                <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+                  Who to charge:
+                </div>
+                <OpponentSelector
+                  opponents={opponents}
+                  selected={wildRentTargetPlayerId}
+                  onSelect={setWildRentTargetPlayerId}
+                />
+              </>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => {
+                  if (!wildRentSetId) return;
+                  const target = wildRentTargetPlayerId ?? (opponents.length === 1 ? opponents[0].id : null);
+                  if (!target) return;
+                  onPlayWildRent(wildRentSetId, target);
+                }}
+                disabled={!wildRentSetId || !wildRentTargetPlayerId}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm"
+              >
+                💸 Charge Rent
+              </button>
+              <button
+                onClick={onBank}
+                className="flex-1 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg text-sm"
+              >
+                Bank ${card.value}M
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -519,6 +603,7 @@ function getDescription(card: ActionCard): string {
     case "house": return "Add a house to a complete set (+$3M rent).";
     case "hotel": return "Add a hotel to a complete set with a house (+$4M rent).";
     case "doubleRent": return "Play with a rent card to double the rent charged.";
+    case "rentWild": return "Charge one opponent rent for any of your property sets.";
     default: return "";
   }
 }
