@@ -1,6 +1,6 @@
 import { PROPERTY_RULES } from "../data/propertyRules";
 import { Player, PropertySet } from "../types/game";
-import { RentCard } from "../types/card";
+import { PropertyColor, RentCard } from "../types/card";
 
 export function isSetComplete(set: PropertySet): boolean {
   const rule = PROPERTY_RULES[set.color];
@@ -21,7 +21,12 @@ export function getRentForSet(set: PropertySet): number {
   const rule = PROPERTY_RULES[set.color];
   const count = set.properties.length;
   const tierIndex = Math.min(count - 1, rule.rentTiers.length - 1);
-  return rule.rentTiers[tierIndex];
+  let rent = rule.rentTiers[tierIndex];
+  if (isSetComplete(set)) {
+    if (set.hasHouse) rent += 3;
+    if (set.hasHotel) rent += 4;
+  }
+  return rent;
 }
 
 export function getRentableSetsByCard(
@@ -30,5 +35,14 @@ export function getRentableSetsByCard(
 ): PropertySet[] {
   return player.propertySets.filter(set =>
     rentCard.rentableColors.includes(set.color)
+  );
+}
+
+export function getIncompleteSetForColor(
+  player: Player,
+  color: PropertyColor
+): PropertySet | undefined {
+  return player.propertySets.find(
+    s => s.color === color && !isSetComplete(s)
   );
 }

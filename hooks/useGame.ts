@@ -16,6 +16,8 @@ import {
   playDebtCollector,
   playSlyDeal,
   playForcedDeal,
+  playHouse,
+  playHotel,
   getCurrentPlayer,
   getPayableSources,
   confirmPayment,
@@ -95,8 +97,8 @@ export function useGame() {
     update(g => placePropertyIntoSet(g, playerId, cardId, setId));
   }
 
-  function doPlayRentCard(playerId: string, cardId: string, setId: string, onSuccess: () => void) {
-    update(g => playRentCard(g, playerId, cardId, setId), onSuccess);
+  function doPlayRentCard(playerId: string, cardId: string, setId: string, onSuccess: () => void, doubleRentCardId?: string) {
+    update(g => playRentCard(g, playerId, cardId, setId, doubleRentCardId), onSuccess);
   }
 
   function doPlacePendingProperty(playerId: string, cardId: string, targetSetId: string | null) {
@@ -152,6 +154,14 @@ export function useGame() {
     setLastLog([]);
   }
 
+  function doPlayHouse(playerId: string, cardId: string, setId: string) {
+    update(g => playHouse(g, playerId, cardId, setId));
+  }
+
+  function doPlayHotel(playerId: string, cardId: string, setId: string) {
+    update(g => playHotel(g, playerId, cardId, setId));
+  }
+
   return {
     game,
     error,
@@ -174,6 +184,8 @@ export function useGame() {
     doPlayDebtCollector,
     doPlaySlyDeal,
     doPlayForcedDeal,
+    doPlayHouse,
+    doPlayHotel,
     reset,
   }
 }

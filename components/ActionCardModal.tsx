@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Game, Player } from "../types/game";
 import { ActionCard, PropertyCard } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
-import { isSetComplete } from "../lib/propertyUtils";
+import { getRentForSet, isSetComplete } from "../lib/propertyUtils";
 
 interface ActionCardModalProps {
   game: Game;
@@ -14,6 +14,8 @@ interface ActionCardModalProps {
   onPlayDebtCollector: (targetPlayerId: string) => void;
   onPlaySlyDeal: (targetPlayerId: string, targetSetId: string, targetCardId: string) => void;
   onPlayForcedDeal: (targetPlayerId: string, targetSetId: string, targetCardId: string, offeredSetId: string, offeredCardId: string) => void;
+  onPlayHouse: (setId: string) => void;
+  onPlayHotel: (setId: string) => void;
   onBank: () => void;
   onCancel: () => void;
 }
@@ -27,6 +29,8 @@ export function ActionCardModal({
   onPlayDebtCollector,
   onPlaySlyDeal,
   onPlayForcedDeal,
+  onPlayHouse,
+  onPlayHotel,
   onBank,
   onCancel,
 }: ActionCardModalProps) {
@@ -327,6 +331,150 @@ export function ActionCardModal({
           </div>
         )}
 
+        {/* House */}
+        {card.action === "house" && (
+          <div>
+            <p className="text-slate-300 text-sm mb-3">
+              Add a house to a complete set <span className="text-slate-400">(not railroads or utilities)</span>:
+            </p>
+            {player.propertySets.filter(s =>
+              isSetComplete(s) &&
+              !s.hasHouse &&
+              s.color !== "railroad" &&
+              s.color !== "utility"
+            ).length === 0 ? (
+              <p className="text-xs text-slate-500 mb-4">No eligible sets.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {player.propertySets
+                  .filter(s =>
+                    isSetComplete(s) &&
+                    !s.hasHouse &&
+                    s.color !== "railroad" &&
+                    s.color !== "utility"
+                  )
+                  .map(set => {
+                    const rule = PROPERTY_RULES[set.color];
+                    return (
+                      <div
+                        key={set.id}
+                        onClick={() => setTargetSetId(set.id === targetSetId ? null : set.id)}
+                        className={`text-xs border rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                          targetSetId === set.id
+                            ? "border-emerald-400 bg-emerald-900/30"
+                            : "border-slate-500 bg-slate-700 hover:border-emerald-500"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-white mb-1">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: rule.color }} />
+                          <span>{rule.displayName}</span>
+                          <span className="text-slate-400 font-normal">✓</span>
+                        </div>
+                        <div className="text-slate-400">
+                          Current rent: ${getRentForSet(set)}M → with house: ${getRentForSet(set) + 3}M
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => targetSetId && onPlayHouse(targetSetId)}
+                disabled={!targetSetId}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm"
+              >
+                🏠 Add House
+              </button>
+              <button onClick={onBank}
+                className="flex-1 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg text-sm">
+                Bank ${card.value}M
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Hotel */}
+        {card.action === "hotel" && (
+          <div>
+            <p className="text-slate-300 text-sm mb-3">
+              Add a hotel to a complete set with a house <span className="text-slate-400">(not railroads or utilities)</span>:
+            </p>
+            {player.propertySets.filter(s =>
+              isSetComplete(s) &&
+              s.hasHouse &&
+              !s.hasHotel &&
+              s.color !== "railroad" &&
+              s.color !== "utility"
+            ).length === 0 ? (
+              <p className="text-xs text-slate-500 mb-4">No eligible sets — need a complete set with a house first.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {player.propertySets
+                  .filter(s =>
+                    isSetComplete(s) &&
+                    s.hasHouse &&
+                    !s.hasHotel &&
+                    s.color !== "railroad" &&
+                    s.color !== "utility"
+                  )
+                  .map(set => {
+                    const rule = PROPERTY_RULES[set.color];
+                    return (
+                      <div
+                        key={set.id}
+                        onClick={() => setTargetSetId(set.id === targetSetId ? null : set.id)}
+                        className={`text-xs border rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                          targetSetId === set.id
+                            ? "border-yellow-400 bg-yellow-900/30"
+                            : "border-slate-500 bg-slate-700 hover:border-yellow-500"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-white mb-1">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: rule.color }} />
+                          <span>{rule.displayName}</span>
+                          <span className="text-slate-400 font-normal">🏠✓</span>
+                        </div>
+                        <div className="text-slate-400">
+                          Current rent: ${getRentForSet(set)}M → with hotel: ${getRentForSet(set) + 4}M
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => targetSetId && onPlayHotel(targetSetId)}
+                disabled={!targetSetId}
+                className="flex-1 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm"
+              >
+                🏨 Add Hotel
+              </button>
+              <button onClick={onBank}
+                className="flex-1 py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg text-sm">
+                Bank ${card.value}M
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Double Rent */}
+        {card.action === "doubleRent" && (
+          <div>
+            <p className="text-slate-300 text-sm mb-4">
+              Play alongside a rent card to double the amount charged.
+              Select a rent card first, then use the "Double Rent?" toggle.
+            </p>
+            <button
+              onClick={onBank}
+              className="w-full py-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg text-sm"
+            >
+              Bank ${card.value}M
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -368,6 +516,9 @@ function getDescription(card: ActionCard): string {
     case "debtCollector": return "One opponent pays you $5M.";
     case "slyDeal": return "Steal one property from an incomplete set.";
     case "forcedDeal": return "Swap one of your properties with one of theirs.";
+    case "house": return "Add a house to a complete set (+$3M rent).";
+    case "hotel": return "Add a hotel to a complete set with a house (+$4M rent).";
+    case "doubleRent": return "Play with a rent card to double the rent charged.";
     default: return "";
   }
 }

@@ -31,6 +31,8 @@ export default function Page() {
     doPlayDebtCollector,
     doPlaySlyDeal,
     doPlayForcedDeal,
+    doPlayHouse,
+    doPlayHotel,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
@@ -40,6 +42,7 @@ export default function Page() {
   const [viewingPlayerId, setViewingPlayerId] = useState<string>("p1");
   const [playerNames, setPlayerNames] = useState<string[]>(["Alice", "Bob"]);
   const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
+  const [doubleRentCardId, setDoubleRentCardId] = useState<string | null>(null);
 
   // ── Setup screen ────────────────────────────────────────────────────────────
   if (!game) {
@@ -190,6 +193,7 @@ export default function Page() {
     setSelectedCardIds([]);
     setSelectedSetId(null);
     setRentSetId(null);
+    setDoubleRentCardId(null);
   }
 
   function handleEndTurn() {
@@ -229,10 +233,16 @@ export default function Page() {
   function handlePlayRent() {
     if (!game || !rentSetId) return;
     const opponents = game.players.filter(p => p.id !== viewPlayer.id);
-    doPlayRentCard(viewPlayer.id, selectedCardIds[0], rentSetId, () => {
-      clearSelection();
-      if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
-    });
+    doPlayRentCard(
+      viewPlayer.id,
+      selectedCardIds[0],
+      rentSetId,
+      () => {
+        clearSelection();
+        if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
+      },
+      doubleRentCardId ?? undefined
+    );
   }
 
   function handlePlayPassGo(cardId: string) {
@@ -377,6 +387,14 @@ export default function Page() {
             onPlayForcedDeal={(targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId) =>
               handlePlayForcedDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId)
             }
+            onPlayHouse={setId => {
+              doPlayHouse(viewPlayer.id, selectedAction.id, setId);
+              setSelectedCardIds([]);
+            }}
+            onPlayHotel={setId => {
+              doPlayHotel(viewPlayer.id, selectedAction.id, setId);
+              setSelectedCardIds([]);
+            }}
             onBank={() => {
               doBankCards(viewPlayer.id, [selectedAction.id]);
               setSelectedCardIds([]);
@@ -460,6 +478,10 @@ export default function Page() {
             onDiscard={handleDiscard}
             onPlacePending={(cardId, targetSetId) =>
               doPlacePendingProperty(player.id, cardId, targetSetId)
+            }
+            doubleRentCardId={doubleRentCardId}
+            onToggleDoubleRent={cardId =>
+              setDoubleRentCardId(prev => prev === cardId ? null : cardId)
             }
           />
         ))}

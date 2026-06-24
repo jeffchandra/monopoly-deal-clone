@@ -15,6 +15,7 @@ export type PropertyColor =
 export type ActionType =
   | "dealBreaker"
   | "debtCollector"
+  | "doubleRent"
   | "forcedDeal"
   | "hotel"
   | "house"

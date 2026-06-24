@@ -123,6 +123,21 @@ export function createDeck(): Card[] {
     cards.push(act("Forced Deal", 3, "forcedDeal"));
   }
 
+  // House x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("House", 3, "house"));
+  }
+
+  // Hotel x3
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("Hotel", 4, "hotel"));
+  }
+
+  // Double Rent x2
+  for (let i = 0; i < 10; i++) {
+    cards.push(act("Double Rent", 2, "doubleRent"));
+  }
+  
   // Just Say No x3
   // for (let i = 0; i < 3; i++) {
   //   cards.push(act("Just Say No", 4, "justSayNo"));

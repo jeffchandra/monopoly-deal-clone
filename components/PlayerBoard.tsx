@@ -19,7 +19,9 @@ interface PlayerBoardProps {
   singleNonPropertyNonMoney: boolean;
   canEndTurn: boolean;
   needsDiscard: boolean;
+  selectedPendingId: string | null;
   pendingPlacements: import("../types/card").PropertyCard[];
+  doubleRentCardId: string | null;
   onToggleCard: (cardId: string) => void;
   onAddToSet: (setId: string) => void;
   onNewSet: () => void;
@@ -30,8 +32,8 @@ interface PlayerBoardProps {
   onEndTurn: () => void;
   onDiscard: () => void;
   onPlacePending: (cardId: string, targetSetId: string | null) => void;
-  selectedPendingId: string | null;
   onSelectPending: (cardId: string) => void;
+  onToggleDoubleRent: (cardId: string) => void;
 }
 
 export function PlayerBoard({
@@ -49,7 +51,9 @@ export function PlayerBoard({
   singleNonPropertyNonMoney,
   canEndTurn,
   needsDiscard,
+  selectedPendingId,
   pendingPlacements,
+  doubleRentCardId,
   onToggleCard,
   onAddToSet,
   onNewSet,
@@ -60,8 +64,8 @@ export function PlayerBoard({
   onEndTurn,
   onDiscard,
   onPlacePending,
-  selectedPendingId,
-  onSelectPending
+  onSelectPending,
+  onToggleDoubleRent
 }: PlayerBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
   const singleProperty =
@@ -313,12 +317,34 @@ export function PlayerBoard({
 
             {/* Charge Rent — below sets */}
             {isMyTurn && isViewing && game.phase === "actionPhase" && singleRentSelected && rentSetId && (
-              <button
-                onClick={onPlayRent}
-                className="mt-2 bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-              >
-                💸 Charge Rent
-              </button>
+              <div className="mt-2 flex flex-wrap gap-2 items-center">
+                {/* Double Rent toggle — only show if player has one */}
+                {(() => {
+                  const doubleRentCard = player.hand.find(
+                    c => c.type === "action" &&
+                    (c as import("../types/card").ActionCard).action === "doubleRent" &&
+                    c.id !== selectedCardIds[0]
+                  );
+                  return doubleRentCard ? (
+                    <button
+                      onClick={() => onToggleDoubleRent(doubleRentCard.id)}
+                      className={`font-semibold px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        doubleRentCardId === doubleRentCard.id
+                          ? "bg-yellow-600 border-yellow-400 text-white"
+                          : "bg-slate-700 border-slate-500 text-yellow-300 hover:border-yellow-400"
+                      }`}
+                    >
+                      {doubleRentCardId ? "✓ Double Rent" : "Double Rent?"}
+                    </button>
+                  ) : null;
+                })()}
+                <button
+                  onClick={onPlayRent}
+                  className="bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                >
+                  💸 Charge Rent{doubleRentCardId ? " (×2)" : ""}
+                </button>
+              </div>
             )}
 
             {/* New Set — below sets */}

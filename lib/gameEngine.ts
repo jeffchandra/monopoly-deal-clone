@@ -1,7 +1,7 @@
 import { Game, Player, PendingPayment } from "../types/game";
 import { Card, RentCard, PropertyCard } from "../types/card";
 import { createDeck, shuffleDeck } from "./deck";
-import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCard } from "./propertyUtils";
+import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCard, getIncompleteSetForColor } from "./propertyUtils";
 import { getTotalAssets } from "./bankUtils";
 import { PROPERTY_RULES } from "../data/propertyRules";
 
@@ -324,7 +324,8 @@ export function playRentCard(
   game: Game,
   playerId: string,
   cardId: string,
-  setId: string
+  setId: string,
+  doubleRentCardId?: string
 ): void {
   if (game.phase !== "actionPhase") throw new Error("Not in action phase");
   if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
@@ -344,36 +345,43 @@ export function playRentCard(
     throw new Error("This rent card does not cover that color");
   }
 
-  const rentablesets = getRentableSetsByCard(player, rentCard);
-  if (rentablesets.length === 0) {
+  const rentableSets = getRentableSetsByCard(player, rentCard);
+  if (rentableSets.length === 0) {
     throw new Error("You have no matching properties to charge rent for");
   }
 
-  const amount = getRentForSet(set);
+  // Handle double rent
+  let multiplier = 1;
+  if (doubleRentCardId) {
+    const doubleIdx = player.hand.findIndex(c => c.id === doubleRentCardId);
+    if (doubleIdx === -1) throw new Error("Double Rent card not found in hand");
+    const doubleCard = player.hand.splice(doubleIdx, 1)[0];
+    game.discardPile.push(doubleCard);
+    multiplier = 2;
+  }
+
+  const amount = getRentForSet(set) * multiplier;
   const opponents = getOpponents(game, playerId);
 
-  // Remove card from hand and discard
   player.hand.splice(cardIdx, 1);
   game.discardPile.push(rentCard);
   game.actionsRemaining--;
 
-  // Push a pending payment for each opponent
   for (const opponent of opponents) {
-    const payment: PendingPayment = {
+    game.pendingActions.push({
       kind: "payRent",
       fromPlayerId: opponent.id,
       toPlayerId: playerId,
       amountOwed: amount,
       selectedCardIds: [],
       blocked: false,
-    };
-    game.pendingActions.push(payment);
+    });
   }
 
   game.phase = "pendingAction";
   addLog(
     game,
-    `${player.name} charged $${amount}M rent on ${PROPERTY_RULES[set.color].displayName}.`
+    `${player.name} charged $${amount}M rent on ${PROPERTY_RULES[set.color].displayName}${multiplier === 2 ? " (doubled!)" : ""}.`
   );
 }
 
@@ -596,4 +604,63 @@ export function playForcedDeal(
 
   addLog(game, `${player.name} forced a deal — swapped ${givenCard.name} for ${takenCard.name} from ${target.name}.`);
   checkWinCondition(game);
+}
+
+export function playHouse(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  setId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const set = player.propertySets.find(s => s.id === setId);
+  if (!set) throw new Error("Set not found");
+  if (!isSetComplete(set)) throw new Error("Can only add a house to a complete set");
+  if (set.color === "railroad" || set.color === "utility") {
+    throw new Error("Cannot add houses to railroads or utilities");
+  }
+  if (set.hasHouse) throw new Error("Set already has a house");
+
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  set.hasHouse = true;
+  game.actionsRemaining--;
+
+  addLog(game, `${player.name} added a house to their ${PROPERTY_RULES[set.color].displayName} set. Rent is now $${getRentForSet(set)}M.`);
+}
+
+export function playHotel(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  setId: string
+): void {
+  if (game.phase !== "actionPhase") throw new Error("Not in action phase");
+  if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
+
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const set = player.propertySets.find(s => s.id === setId);
+  if (!set) throw new Error("Set not found");
+  if (!isSetComplete(set)) throw new Error("Can only add a hotel to a complete set");
+  if (set.color === "railroad" || set.color === "utility") {
+    throw new Error("Cannot add hotels to railroads or utilities");
+  }
+  if (!set.hasHouse) throw new Error("Must have a house before adding a hotel");
+  if (set.hasHotel) throw new Error("Set already has a hotel");
+
+  const card = player.hand.splice(cardIdx, 1)[0];
+  game.discardPile.push(card);
+  set.hasHotel = true;
+  game.actionsRemaining--;
+
+  addLog(game, `${player.name} added a hotel to their ${PROPERTY_RULES[set.color].displayName} set. Rent is now $${getRentForSet(set)}M.`);
 }
