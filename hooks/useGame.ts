@@ -25,7 +25,7 @@ import {
   movePropertyBetweenSets,
 } from "../lib/gameEngine";
 import { Game } from "../types/game";
-import { Card } from "../types/card";
+import { Card, PropertyColor } from "../types/card";
 
 function cloneGame(game: Game): Game {
   return JSON.parse(JSON.stringify(game));
@@ -91,8 +91,8 @@ export function useGame() {
     });
   }
 
-  function doPlacePropertyAsNewSet(playerId: string, cardId: string) {
-    update(g => placePropertyAsNewSet(g, playerId, cardId));
+  function doPlacePropertyAsNewSet(playerId: string, cardId: string, colorOverride?: PropertyColor) {
+    update(g => placePropertyAsNewSet(g, playerId, cardId, colorOverride));
   }
 
   function doPlacePropertyIntoSet(playerId: string, cardId: string, setId: string) {

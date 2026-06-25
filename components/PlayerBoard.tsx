@@ -1,6 +1,6 @@
 "use client";
 import { Player, Game, PropertySet } from "../types/game";
-import { PropertyCard, RentCard } from "../types/card";
+import { PropertyCard, RentCard, PropertyColor } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
 import { isSetComplete, getRentForSet } from "../lib/propertyUtils";
 
@@ -47,6 +47,7 @@ interface PlayerBoardProps {
   onPlayWildRent: () => void;
   onAddHouse: (setId: string) => void;
   onAddHotel: (setId: string) => void;
+  onNewSetWithColor: (color: import("../types/card").PropertyColor) => void;
 }
 
 export function PlayerBoard({
@@ -92,6 +93,7 @@ export function PlayerBoard({
   onPlayWildRent,
   onAddHouse,
   onAddHotel,
+  onNewSetWithColor,
 }: PlayerBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
   const singleProperty =
@@ -213,12 +215,20 @@ export function PlayerBoard({
                 💰 Bank {selectedCardIds.length > 1 ? `${selectedCardIds.length} Cards` : "Card"}
               </button>
             )}
-            {singleNonPropertyNonMoney && (
+            {singleNonPropertyNonMoney && !singleDoubleRent && (
               <button
                 onClick={onBankCards}
                 className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
               >
                 💰 Bank Card
+              </button>
+            )}
+            {singleDoubleRent && (
+              <button
+                onClick={onBankCards}
+                className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+              >
+                💰 Bank Double Rent ($2M)
               </button>
             )}
           </>
@@ -236,22 +246,52 @@ export function PlayerBoard({
             <span className="text-xs text-slate-500">None</span>
             {(singleProperty || selectedPendingCard !== null) &&
               isViewing &&
-              isMyTurn &&
               (game.phase === "actionPhase" || game.phase === "pendingAction") && (
-                <button
-                  onClick={() => {
-                    if (selectedPendingCard) {
-                      onPlacePending(selectedPendingCard.id, null);
-                      onSelectPending("");
-                    } else {
-                      onNewSet();
-                    }
-                  }}
-                  className="mt-2 block bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-                >
-                  ＋ New Set
-                </button>
-              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(() => {
+                  const card = selectedPendingCard ?? (singleProperty ? selectedCards[0] as import("../types/card").PropertyCard : null);
+                  if (!card) return null;
+                  const isWild = card.colors.length > 1;
+                  if (isWild) {
+                    return card.colors.map(color => {
+                      const rule = PROPERTY_RULES[color];
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            if (selectedPendingCard) {
+                              onPlacePending(selectedPendingCard.id, null);
+                              onSelectPending("");
+                            } else {
+                              onNewSetWithColor(color);
+                            }
+                          }}
+                          className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
+                        >
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: rule.color }} />
+                          ＋ New {rule.displayName} Set
+                        </button>
+                      );
+                    });
+                  }
+                  return (
+                    <button
+                      onClick={() => {
+                        if (selectedPendingCard) {
+                          onPlacePending(selectedPendingCard.id, null);
+                          onSelectPending("");
+                        } else {
+                          onNewSet();
+                        }
+                      }}
+                      className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                    >
+                      ＋ New Set
+                    </button>
+                  );
+                })()}
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -266,8 +306,14 @@ export function PlayerBoard({
                   !complete &&
                   (game.phase === "actionPhase" || game.phase === "pendingAction") &&
                   (
-                    (singleProperty && selectedPropertyColor === set.color) ||
-                    (selectedPendingCard !== null && selectedPendingCard.activeColor === set.color)
+                    (singleProperty && (
+                      selectedPropertyColor === set.color ||
+                      (selectedCards[0] as import("../types/card").PropertyCard)?.colors?.includes(set.color)
+                    )) ||
+                    (selectedPendingCard !== null && (
+                      selectedPendingCard.activeColor === set.color ||
+                      selectedPendingCard.colors.includes(set.color)
+                    ))
                   );
 
                 const isRentTarget =
@@ -287,8 +333,17 @@ export function PlayerBoard({
                   selectedBoardCardId !== null &&
                   selectedBoardSetId !== null &&
                   set.id !== selectedBoardSetId &&
-                  set.color === (player.propertySets.find(s => s.id === selectedBoardSetId)?.color) &&
-                  !complete;
+                  !complete &&
+                  (() => {
+                    const movingCard = player.propertySets
+                      .flatMap(s => s.properties)
+                      .find(c => c.id === selectedBoardCardId) as import("../types/card").PropertyCard | undefined;
+                    if (!movingCard) return false;
+                    if (movingCard.colors.length > 1) {
+                      return movingCard.colors.includes(set.color);
+                    }
+                    return set.color === (player.propertySets.find(s => s.id === selectedBoardSetId)?.color);
+                  })();
 
                 const isHouseTarget =
                   isViewing &&
@@ -516,22 +571,52 @@ export function PlayerBoard({
             {/* New Set — below sets */}
             {(singleProperty || selectedPendingCard !== null) &&
               isViewing &&
-              isMyTurn &&
               (game.phase === "actionPhase" || game.phase === "pendingAction") && (
-                <button
-                  onClick={() => {
-                    if (selectedPendingCard) {
-                      onPlacePending(selectedPendingCard.id, null);
-                      onSelectPending("");
-                    } else {
-                      onNewSet();
-                    }
-                  }}
-                  className="mt-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
-                >
-                  ＋ New Set
-                </button>
-              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(() => {
+                  const card = selectedPendingCard ?? (singleProperty ? selectedCards[0] as import("../types/card").PropertyCard : null);
+                  if (!card) return null;
+                  const isWild = card.colors.length > 1;
+                  if (isWild) {
+                    return card.colors.map(color => {
+                      const rule = PROPERTY_RULES[color];
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            if (selectedPendingCard) {
+                              onPlacePending(selectedPendingCard.id, null);
+                              onSelectPending("");
+                            } else {
+                              onNewSetWithColor(color);
+                            }
+                          }}
+                          className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
+                        >
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: rule.color }} />
+                          ＋ New {rule.displayName} Set
+                        </button>
+                      );
+                    });
+                  }
+                  return (
+                    <button
+                      onClick={() => {
+                        if (selectedPendingCard) {
+                          onPlacePending(selectedPendingCard.id, null);
+                          onSelectPending("");
+                        } else {
+                          onNewSet();
+                        }
+                      }}
+                      className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+                    >
+                      ＋ New Set
+                    </button>
+                  );
+                })()}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -48,6 +48,7 @@ export default function Page() {
   const [selectedBoardCardId, setSelectedBoardCardId] = useState<string | null>(null);
   const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
   const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
+  const [wildColorPickerCardId, setWildColorPickerCardId] = useState<string | null>(null);
 
   // ── Setup screen ────────────────────────────────────────────────────────────
   if (!game) {
@@ -223,6 +224,7 @@ export default function Page() {
     setSelectedBoardCardId(null);
     setSelectedBoardSetId(null);
     setWildRentTargetPlayerId(null);
+    setWildColorPickerCardId(null);
   }
 
   function handleEndTurn() {
@@ -578,6 +580,10 @@ export default function Page() {
             }}
             onAddHotel={setId => {
               doPlayHotel(viewPlayer.id, selectedCardIds[0], setId);
+              clearSelection();
+            }}
+            onNewSetWithColor={color => {
+              doPlacePropertyAsNewSet(viewPlayer.id, selectedCardIds[0], color);
               clearSelection();
             }}
           />

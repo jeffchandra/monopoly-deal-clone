@@ -143,6 +143,17 @@ export function createDeck(): Card[] {
     cards.push(act("Wild Rent", 3, "rentWild"));
   }
   
+  // 2-Color Wild Cards
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Pink/Orange", type: "property", value: 2, colors: ["pink", "orange"], activeColor: "pink" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Pink/Orange", type: "property", value: 2, colors: ["pink", "orange"], activeColor: "pink" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Red/Yellow", type: "property", value: 3, colors: ["red", "yellow"], activeColor: "red" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Red/Yellow", type: "property", value: 3, colors: ["red", "yellow"], activeColor: "red" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Green/Dark Blue", type: "property", value: 4, colors: ["green", "darkBlue"], activeColor: "green" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Light Blue/Brown", type: "property", value: 1, colors: ["lightBlue", "brown"], activeColor: "lightBlue" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Light Blue/Railroad", type: "property", value: 4, colors: ["lightBlue", "railroad"], activeColor: "lightBlue" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Railroad/Green", type: "property", value: 4, colors: ["railroad", "green"], activeColor: "railroad" } as PropertyCard);
+  cards.push({ id: crypto.randomUUID(), name: "Wild: Utility/Railroad", type: "property", value: 2, colors: ["utility", "railroad"], activeColor: "utility" } as PropertyCard);
+
   // Just Say No x3
   // for (let i = 0; i < 3; i++) {
   //   cards.push(act("Just Say No", 4, "justSayNo"));

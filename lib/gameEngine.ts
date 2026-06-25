@@ -1,5 +1,5 @@
 import { Game, Player, PendingPayment } from "../types/game";
-import { Card, RentCard, PropertyCard } from "../types/card";
+import { Card, RentCard, PropertyCard, PropertyColor } from "../types/card";
 import { createDeck, shuffleDeck } from "./deck";
 import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCard, getIncompleteSetForColor } from "./propertyUtils";
 import { getTotalAssets } from "./bankUtils";
@@ -151,7 +151,8 @@ export function discard(game: Game, playerId: string, cardId: string): void {
 export function placePropertyAsNewSet(
   game: Game,
   playerId: string,
-  cardId: string
+  cardId: string,
+  colorOverride?: PropertyColor
 ): void {
   if (game.phase !== "actionPhase") throw new Error("Not in action phase");
   if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
@@ -160,12 +161,20 @@ export function placePropertyAsNewSet(
   const cardIdx = player.hand.findIndex(c => c.id === cardId);
   if (cardIdx === -1) throw new Error("Card not found in hand");
 
-  const card = player.hand.splice(cardIdx, 1)[0];
+  const card = player.hand.splice(cardIdx, 1)[0] as PropertyCard;
+
+  // For wild cards — use color override if provided
+  if (colorOverride) {
+    if (!card.colors.includes(colorOverride)) {
+      throw new Error("Invalid color for this wild card");
+    }
+    card.activeColor = colorOverride;
+  }
 
   player.propertySets.push({
     id: crypto.randomUUID(),
-    color: (card as import("../types/card").PropertyCard).activeColor,
-    properties: [card as import("../types/card").PropertyCard],
+    color: (card as PropertyCard).activeColor,
+    properties: [card as PropertyCard],
     hasHouse: false,
     hasHotel: false,
   });
@@ -192,12 +201,19 @@ export function placePropertyIntoSet(
   if (!set) throw new Error("Set not found");
   if (isSetComplete(set)) throw new Error("That set is already complete");
 
-  const card = player.hand.splice(cardIdx, 1)[0] as import("../types/card").PropertyCard;
+  const card = player.hand.splice(cardIdx, 1)[0] as PropertyCard;
 
-  if (card.activeColor !== set.color) throw new Error("Card color does not match set");
+  // For wild cards — auto-flip to match set color
+  if (card.colors.length > 1) {
+    if (!card.colors.includes(set.color)) {
+      throw new Error("This wild card cannot be this color");
+    }
+    card.activeColor = set.color;
+  } else {
+    if (card.activeColor !== set.color) throw new Error("Card color does not match set");
+  }
 
   set.properties.push(card);
-
   game.actionsRemaining--;
   addLog(game, `${player.name} added ${card.name} to their ${set.color} set.`);
   checkWinCondition(game);
@@ -417,7 +433,17 @@ export function placePendingProperty(
     const set = player.propertySets.find(s => s.id === targetSetId);
     if (!set) throw new Error("Set not found");
     if (isSetComplete(set)) throw new Error("Set is already complete");
-    if (set.color !== card.activeColor) throw new Error("Color mismatch");
+
+    // Auto-flip wild cards
+    if (card.colors.length > 1) {
+      if (!card.colors.includes(set.color)) {
+        throw new Error("This wild card cannot be this color");
+      }
+      card.activeColor = set.color;
+    } else {
+      if (set.color !== card.activeColor) throw new Error("Color mismatch");
+    }
+
     set.properties.push(card);
   }
 
@@ -687,12 +713,22 @@ export function movePropertyBetweenSets(
   const toSet = player.propertySets.find(s => s.id === toSetId);
   if (!toSet) throw new Error("Destination set not found");
   if (isSetComplete(toSet)) throw new Error("Cannot move a card into a complete set");
-  if (fromSet.color !== toSet.color) throw new Error("Sets must be the same color");
+  // if (fromSet.color !== toSet.color) throw new Error("Sets must be the same color");
 
   const cardIdx = fromSet.properties.findIndex(c => c.id === cardId);
   if (cardIdx === -1) throw new Error("Card not found in source set");
 
-  const card = fromSet.properties.splice(cardIdx, 1)[0];
+  const card = fromSet.properties.splice(cardIdx, 1)[0] as PropertyCard;
+
+  if (card.colors.length > 1) {
+    if (!card.colors.includes(toSet.color)) {
+      throw new Error("This wild card cannot be this color");
+    }
+    card.activeColor = toSet.color;
+  } else {
+    if (fromSet.color !== toSet.color) throw new Error("Sets must be the same color");
+  }
+
   if (fromSet.properties.length === 0) {
     player.propertySets = player.propertySets.filter(s => s.id !== fromSetId);
   }
@@ -724,7 +760,6 @@ export function playWildRent(
 
   const target = getPlayerById(game, targetPlayerId);
 
-  // Handle double rent
   let multiplier = 1;
   if (doubleRentCardId) {
     const doubleIdx = player.hand.findIndex(c => c.id === doubleRentCardId);
