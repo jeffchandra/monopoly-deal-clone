@@ -253,26 +253,37 @@ export function PlayerBoard({
                   if (!card) return null;
                   const isWild = card.colors.length > 1;
                   if (isWild) {
-                    return card.colors.map(color => {
-                      const rule = PROPERTY_RULES[color];
-                      return (
-                        <button
-                          key={color}
-                          onClick={() => {
-                            if (selectedPendingCard) {
-                              onPlacePending(selectedPendingCard.id, null);
-                              onSelectPending("");
-                            } else {
-                              onNewSetWithColor(color);
-                            }
-                          }}
-                          className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
-                        >
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: rule.color }} />
-                          ＋ New {rule.displayName} Set
-                        </button>
-                      );
-                    });
+                    const isAllColor = card.colors.length > 2;
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-xs text-slate-400 mb-1">
+                          {isAllColor ? "Choose color for new set:" : "New set as:"}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {card.colors.map(color => {
+                            const rule = PROPERTY_RULES[color];
+                            return (
+                              <button
+                                key={color}
+                                onClick={() => {
+                                  if (selectedPendingCard) {
+                                    onPlacePending(selectedPendingCard.id, null);
+                                    onSelectPending("");
+                                  } else {
+                                    onNewSetWithColor(color);
+                                  }
+                                }}
+                                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border border-slate-600 hover:border-white transition-colors"
+                                style={{ backgroundColor: rule.color + "33" }}
+                              >
+                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rule.color }} />
+                                <span style={{ color: "white" }}>{rule.displayName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
                   }
                   return (
                     <button
@@ -578,26 +589,37 @@ export function PlayerBoard({
                   if (!card) return null;
                   const isWild = card.colors.length > 1;
                   if (isWild) {
-                    return card.colors.map(color => {
-                      const rule = PROPERTY_RULES[color];
-                      return (
-                        <button
-                          key={color}
-                          onClick={() => {
-                            if (selectedPendingCard) {
-                              onPlacePending(selectedPendingCard.id, null);
-                              onSelectPending("");
-                            } else {
-                              onNewSetWithColor(color);
-                            }
-                          }}
-                          className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
-                        >
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: rule.color }} />
-                          ＋ New {rule.displayName} Set
-                        </button>
-                      );
-                    });
+                    const isAllColor = card.colors.length > 2;
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-xs text-slate-400 mb-1">
+                          {isAllColor ? "Choose color for new set:" : "New set as:"}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {card.colors.map(color => {
+                            const rule = PROPERTY_RULES[color];
+                            return (
+                              <button
+                                key={color}
+                                onClick={() => {
+                                  if (selectedPendingCard) {
+                                    onPlacePending(selectedPendingCard.id, null);
+                                    onSelectPending("");
+                                  } else {
+                                    onNewSetWithColor(color);
+                                  }
+                                }}
+                                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border border-slate-600 hover:border-white transition-colors"
+                                style={{ backgroundColor: rule.color + "33" }}
+                              >
+                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rule.color }} />
+                                <span style={{ color: "white" }}>{rule.displayName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
                   }
                   return (
                     <button

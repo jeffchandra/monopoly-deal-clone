@@ -99,7 +99,7 @@ export function createDeck(): Card[] {
   }
 
   // Pass Go x10
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 0; i++) {
     cards.push(act("Pass Go", 1, "passGo"));
   }
 
@@ -153,6 +153,12 @@ export function createDeck(): Card[] {
   cards.push({ id: crypto.randomUUID(), name: "Wild: Light Blue/Railroad", type: "property", value: 4, colors: ["lightBlue", "railroad"], activeColor: "lightBlue" } as PropertyCard);
   cards.push({ id: crypto.randomUUID(), name: "Wild: Railroad/Green", type: "property", value: 4, colors: ["railroad", "green"], activeColor: "railroad" } as PropertyCard);
   cards.push({ id: crypto.randomUUID(), name: "Wild: Utility/Railroad", type: "property", value: 2, colors: ["utility", "railroad"], activeColor: "utility" } as PropertyCard);
+
+  // All-Color Wild Cards x2
+  const allColors: PropertyColor[] = ["brown","lightBlue","pink","orange","red","yellow","green","darkBlue","railroad","utility"];
+  for (let i = 0; i < 10; i++) {
+    cards.push({ id: crypto.randomUUID(), name: "Wild: All Colors", type: "property", value: 3, colors: allColors, activeColor: "green" } as PropertyCard);
+  }
 
   // Just Say No x3
   // for (let i = 0; i < 3; i++) {
