@@ -14,44 +14,42 @@ interface PaymentModalProps {
 }
 
 export function PaymentModal({
-  game,
-  pending,
-  viewingPlayerId,
-  paymentCardIds,
-  onToggleCard,
-  onConfirm,
-  onSwitchToPlayer,
+  game, pending, viewingPlayerId, paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer,
 }: PaymentModalProps) {
   const isMyPayment = pending.fromPlayerId === viewingPlayerId;
   const payer = game.players.find(p => p.id === pending.fromPlayerId)!;
   const creditor = game.players.find(p => p.id === pending.toPlayerId)!;
 
-  // ── Waiting screen — not your payment ─────────────────────────────────────
   if (!isMyPayment) {
     return (
-      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-800 border border-slate-600 rounded-2xl p-8 text-center shadow-2xl">
-          <div className="text-4xl mb-3">⏳</div>
-          <p className="text-white text-lg font-semibold mb-1">
-            Waiting for {payer.name}...
-          </p>
-          <p className="text-slate-400 text-sm mb-4">
-            Pass the device to them to pay.
-          </p>
-          <button
-            onClick={() => onSwitchToPlayer(pending.fromPlayerId)}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2 rounded-lg text-sm"
-          >
-            Switch to {payer.name}
-          </button>
+      <div style={{
+        position: "fixed", inset: 0, background: "#0f1f0f",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        zIndex: 50, padding: 32,
+      }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+        <div style={{ color: "white", fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+          Waiting for {payer.name}...
         </div>
+        <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 32 }}>
+          Pass the device to them to pay.
+        </div>
+        <button
+          onClick={() => onSwitchToPlayer(pending.fromPlayerId)}
+          style={{
+            background: "#1d4ed8", border: "none", borderRadius: 10,
+            padding: "12px 28px", color: "white",
+            fontSize: 14, fontWeight: 600, minHeight: 48,
+          }}
+        >
+          Switch to {payer.name}
+        </button>
       </div>
     );
   }
 
-  // ── Payable sources ────────────────────────────────────────────────────────
   const bankCards = [...payer.bank];
-
   const incompleteSetCards: { setId: string; card: PropertyCard }[] = [];
   for (const set of payer.propertySets) {
     const rule = PROPERTY_RULES[set.color];
@@ -75,114 +73,123 @@ export function PaymentModal({
 
   const amountOwed = pending.amountOwed;
   const maxNeeded = Math.min(amountOwed, totalPayable);
-  const canConfirm =
-    selectedValue >= amountOwed || selectedValue >= totalPayable;
+  const canConfirm = selectedValue >= amountOwed || selectedValue >= totalPayable;
 
   const kindLabel =
     pending.kind === "payRent" ? "🏠 Rent Due" :
     pending.kind === "payBirthday" ? "🎂 It's My Birthday!" :
     "💰 Debt Collector";
 
-  // ── Payment screen ─────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
-
-        <h2 className="text-xl font-bold text-white mb-1">{kindLabel}</h2>
-        <p className="text-slate-400 text-sm mb-4">
-          <span className="text-blue-400 font-semibold">{payer.name}</span> owes{" "}
-          <span className="text-white font-semibold">{creditor.name}</span>{" "}
-          <span className="text-yellow-400 font-bold">${amountOwed}M</span>.{" "}
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 50, padding: 16,
+    }}>
+      <div style={{
+        background: "#0a170a", border: "1px solid #1f3d1f",
+        borderRadius: 16, padding: 20, width: "100%", maxWidth: 420,
+        maxHeight: "85vh", overflowY: "auto",
+      }}>
+        <div style={{ color: "white", fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+          {kindLabel}
+        </div>
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16 }}>
+          <span style={{ color: "#60a5fa", fontWeight: 600 }}>{payer.name}</span> owes{" "}
+          <span style={{ color: "white", fontWeight: 600 }}>{creditor.name}</span>{" "}
+          <span style={{ color: "#fbbf24", fontWeight: 700 }}>${amountOwed}M</span>.{" "}
           {totalPayable < amountOwed
-            ? `You only have $${totalPayable}M — pay everything you have.`
+            ? `You only have $${totalPayable}M — pay everything.`
             : "Select cards to pay with."}
-        </p>
-
-        {/* Bank cards */}
-        <div className="mb-4">
-          <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
-            Your Bank
-          </div>
-          {bankCards.length === 0 ? (
-            <span className="text-xs text-slate-500">Empty</span>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {bankCards.map(c => (
-                <div
-                  key={c.id}
-                  onClick={() => onToggleCard(c.id)}
-                  className={`text-xs border rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                    paymentCardIds.includes(c.id)
-                      ? "bg-blue-700 border-blue-400 text-white"
-                      : "bg-emerald-900 border-emerald-700 text-emerald-300 hover:border-emerald-400"
-                  }`}
-                >
-                  <div className="font-bold">${c.value}M</div>
-                  <div className="text-slate-400">{c.name}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Incomplete property cards */}
+        {/* Bank cards */}
+        <div style={{ color: "#6b7280", fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+          Your Bank
+        </div>
+        {bankCards.length === 0 ? (
+          <div style={{ color: "#4b5563", fontSize: 12, marginBottom: 12 }}>Empty</div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            {bankCards.map(c => (
+              <div
+                key={c.id}
+                onClick={() => onToggleCard(c.id)}
+                style={{
+                  background: paymentCardIds.includes(c.id) ? "#1e40af" : "#052e16",
+                  border: `1px solid ${paymentCardIds.includes(c.id) ? "#3b82f6" : "#166534"}`,
+                  borderRadius: 8, padding: "8px 12px", cursor: "pointer",
+                  minHeight: 44, display: "flex", flexDirection: "column", justifyContent: "center",
+                }}
+              >
+                <div style={{ color: paymentCardIds.includes(c.id) ? "white" : "#4ade80", fontWeight: 700, fontSize: 14 }}>
+                  ${c.value}M
+                </div>
+                <div style={{ color: "#6b7280", fontSize: 10 }}>{c.name}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Incomplete properties */}
         {incompleteSetCards.length > 0 && (
-          <div className="mb-4">
-            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+          <>
+            <div style={{ color: "#6b7280", fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Incomplete Properties
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
               {incompleteSetCards.map(({ card }) => {
                 const rule = PROPERTY_RULES[card.activeColor];
                 return (
                   <div
                     key={card.id}
                     onClick={() => onToggleCard(card.id)}
-                    className={`text-xs border rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                      paymentCardIds.includes(card.id)
-                        ? "bg-blue-700 border-blue-400 text-white"
-                        : "bg-slate-700 border-slate-500 text-violet-300 hover:border-violet-400"
-                    }`}
+                    style={{
+                      background: paymentCardIds.includes(card.id) ? "#1e40af" : "#0a170a",
+                      border: `1px solid ${paymentCardIds.includes(card.id) ? "#3b82f6" : "#1f3d1f"}`,
+                      borderRadius: 8, padding: "8px 12px", cursor: "pointer",
+                      minHeight: 44, display: "flex", flexDirection: "column", justifyContent: "center",
+                    }}
                   >
-                    <div className="flex items-center gap-1 font-semibold">
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: rule.color }}
-                      />
-                      {card.name}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: rule.color }} />
+                      <span style={{ color: "white", fontWeight: 600, fontSize: 12 }}>{card.name}</span>
                     </div>
-                    <div className="text-slate-400">${card.value}M · {rule.displayName}</div>
+                    <div style={{ color: "#6b7280", fontSize: 10 }}>${card.value}M · {rule.displayName}</div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </>
         )}
 
         {/* Summary + confirm */}
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
-          <div className="text-sm">
-            <span className="text-slate-400">Selected: </span>
-            <span className={`font-bold ${
-              selectedValue >= amountOwed ? "text-emerald-400" : "text-yellow-400"
-            }`}>
+        <div style={{
+          borderTop: "1px solid #1f3d1f", paddingTop: 12,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ fontSize: 13 }}>
+            <span style={{ color: "#6b7280" }}>Selected: </span>
+            <span style={{ color: selectedValue >= amountOwed ? "#4ade80" : "#fbbf24", fontWeight: 700 }}>
               ${selectedValue}M
             </span>
-            <span className="text-slate-500"> / ${maxNeeded}M needed</span>
+            <span style={{ color: "#4b5563" }}> / ${maxNeeded}M needed</span>
           </div>
           <button
             onClick={onConfirm}
             disabled={!canConfirm}
-            className={`font-bold px-5 py-2 rounded-lg text-sm ${
-              canConfirm
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                : "bg-slate-700 text-slate-500 cursor-not-allowed"
-            }`}
+            style={{
+              background: canConfirm ? "#16a34a" : "#1f2937",
+              color: canConfirm ? "white" : "#4b5563",
+              border: "none", borderRadius: 8,
+              padding: "10px 24px", fontSize: 14, fontWeight: 700,
+              cursor: canConfirm ? "pointer" : "not-allowed",
+              minHeight: 44,
+            }}
           >
             Pay
           </button>
         </div>
-
       </div>
     </div>
   );

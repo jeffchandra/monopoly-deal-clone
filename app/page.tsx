@@ -3,83 +3,80 @@ import { useState } from "react";
 import { useGame } from "../hooks/useGame";
 import { GameHeader } from "../components/GameHeader";
 import { PaymentModal } from "../components/PaymentModal";
-import { PlayerBoard } from "../components/PlayerBoard";
-import { PropertyCard, RentCard } from "../types/card";
-import { getRentableSetsByCard } from "../lib/propertyUtils";
 import { ActionCardModal } from "../components/ActionCardModal";
-import { ActionCard } from "../types/card";
+import { MyBoard } from "../components/MyBoard";
+import { MyHand } from "../components/MyHand";
+import { OpponentStrip } from "../components/OpponentStrip";
+import { PropertyCard, RentCard, ActionCard, PropertyColor } from "../types/card";
+import { getRentableSetsByCard } from "../lib/propertyUtils";
+import { HandoffScreen } from "../components/HandoffScreen";
 
 export default function Page() {
   const {
-    game,
-    error,
-    clearError,
-    init,
-    reset,
-    lastLog,
-    doStartTurn,
-    doEndTurn,
-    doDiscard,
-    doBankCards,
-    doPlacePropertyAsNewSet,
-    doPlacePropertyIntoSet,
-    doPlacePendingProperty,
-    doMovePropertyBetweenSets,
-    doPlayRentCard,
-    doConfirmPayment,
-    doPlayPassGo,
-    doPlayItsMyBirthday,
-    doPlayDebtCollector,
-    doPlaySlyDeal,
-    doPlayForcedDeal,
-    doPlayHouse,
-    doPlayHotel,
-    doPlayWildRent,
+    game, error, clearError, init, reset, lastLog,
+    doStartTurn, doEndTurn, doDiscard, doBankCards,
+    doPlacePropertyAsNewSet, doPlacePropertyIntoSet,
+    doPlayRentCard, doConfirmPayment, doPlacePendingProperty,
+    doPlayPassGo, doPlayItsMyBirthday, doPlayDebtCollector,
+    doPlaySlyDeal, doPlayForcedDeal, doPlayHouse, doPlayHotel,
+    doMovePropertyBetweenSets, doPlayWildRent,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [rentSetId, setRentSetId] = useState<string | null>(null);
+  const [doubleRentCardId, setDoubleRentCardId] = useState<string | null>(null);
   const [paymentCardIds, setPaymentCardIds] = useState<string[]>([]);
   const [viewingPlayerId, setViewingPlayerId] = useState<string>("p1");
   const [playerNames, setPlayerNames] = useState<string[]>(["Alice", "Bob"]);
   const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
-  const [doubleRentCardId, setDoubleRentCardId] = useState<string | null>(null);
   const [selectedBoardCardId, setSelectedBoardCardId] = useState<string | null>(null);
   const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
   const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
-  const [wildColorPickerCardId, setWildColorPickerCardId] = useState<string | null>(null);
+  const [handoff, setHandoff] = useState<{ toPlayerName: string; reason: string; onReady: () => void } | null>(null);
 
-  // ── Setup screen ────────────────────────────────────────────────────────────
+  // ── Setup screen ─────────────────────────────────────────────────────────────
   if (!game) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="bg-slate-800 p-8 rounded-xl border border-slate-600 w-full max-w-sm">
-          <h1 className="text-3xl font-bold text-white mb-2">Monopoly Deal</h1>
-          <p className="text-slate-400 mb-6">2–5 players</p>
+      <div style={{
+        minHeight: "100vh",
+        background: "#0f1f0f",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}>
+        <div style={{
+          background: "#0a170a",
+          border: "1px solid #1f3d1f",
+          borderRadius: 16,
+          padding: 32,
+          width: "100%",
+          maxWidth: 360,
+        }}>
+          <div style={{ color: "#4ade80", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
+            Monopoly Deal
+          </div>
+          <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 24 }}>2–5 players</div>
 
-          <div className="space-y-2 mb-4">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
             {playerNames.map((name, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm w-16">Player {i + 1}</span>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#6b7280", fontSize: 12, width: 60 }}>Player {i + 1}</span>
                 <input
                   value={name}
-                  onChange={e =>
-                    setPlayerNames(prev =>
-                      prev.map((n, j) => (j === i ? e.target.value : n))
-                    )
-                  }
-                  className="flex-1 bg-slate-700 border border-slate-500 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-500"
+                  onChange={e => setPlayerNames(prev => prev.map((n, j) => j === i ? e.target.value : n))}
+                  style={{
+                    flex: 1, background: "#0f1f0f", border: "1px solid #1f3d1f",
+                    borderRadius: 8, padding: "8px 12px", color: "white",
+                    fontSize: 13, outline: "none",
+                  }}
                 />
                 {playerNames.length > 2 && (
                   <button
-                    onClick={() =>
-                      setPlayerNames(prev => prev.filter((_, j) => j !== i))
-                    }
-                    className="text-slate-500 hover:text-red-400 font-bold"
-                  >
-                    ✕
-                  </button>
+                    onClick={() => setPlayerNames(prev => prev.filter((_, j) => j !== i))}
+                    style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 16 }}
+                  >✕</button>
                 )}
               </div>
             ))}
@@ -87,10 +84,13 @@ export default function Page() {
 
           {playerNames.length < 5 && (
             <button
-              onClick={() =>
-                setPlayerNames(prev => [...prev, `Player ${prev.length + 1}`])
-              }
-              className="w-full py-2 mb-4 border border-dashed border-slate-600 text-slate-400 rounded-lg hover:border-slate-400 hover:text-slate-200 transition-colors text-sm"
+              onClick={() => setPlayerNames(prev => [...prev, `Player ${prev.length + 1}`])}
+              style={{
+                width: "100%", minHeight: 44, marginBottom: 12,
+                background: "none", border: "1px dashed #1f3d1f",
+                borderRadius: 8, color: "#4b5563", fontSize: 12, cursor: "pointer",
+                touchAction: "manipulation",
+              }}
             >
               + Add Player
             </button>
@@ -100,13 +100,16 @@ export default function Page() {
             onClick={() => {
               init(playerNames.filter(n => n.trim()));
               setViewingPlayerId("p1");
-              setSelectedCardIds([]);
-              setSelectedSetId(null);
-              setRentSetId(null);
+              clearSelection();
               setPaymentCardIds([]);
             }}
             disabled={playerNames.filter(n => n.trim()).length < 2}
-            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-lg transition-colors"
+            style={{
+              width: "100%", minHeight: 52,
+              background: "#16a34a", border: "none", borderRadius: 10,
+              color: "white", fontSize: 16, fontWeight: 700, cursor: "pointer",
+              touchAction: "manipulation",
+            }}
           >
             Deal Cards
           </button>
@@ -115,7 +118,7 @@ export default function Page() {
     );
   }
 
-  // ── Derived state ───────────────────────────────────────────────────────────
+  // ── Derived state ─────────────────────────────────────────────────────────────
   const currentPlayer = game.players.find(p => p.id === game.currentPlayerId)!;
   const viewPlayer = game.players.find(p => p.id === viewingPlayerId) ?? game.players[0];
   const isMyTurn = viewPlayer.id === currentPlayer.id;
@@ -129,59 +132,53 @@ export default function Page() {
     selectedCards[0].type !== "property" &&
     selectedCards[0].type !== "money";
 
-  const singlePassGo = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "passGo";
+  const getActionType = () =>
+    selectedCards.length === 1 && selectedCards[0].type === "action"
+      ? (selectedCards[0] as ActionCard).action
+      : null;
 
-  const singleBirthday = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "itsMyBirthday";
-
-  const singleDebtCollector = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "debtCollector";
-
-  const singleWildRent = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "rentWild";
-
-  const singleHouse = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "house";
-
-  const singleHotel = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "hotel";
-
-  const singleDoubleRent = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action === "doubleRent";
+  const actionType = getActionType();
+  const singleWildRent = actionType === "rentWild";
+  const singleHouse = actionType === "house";
+  const singleHotel = actionType === "hotel";
+  const singleDoubleRent = actionType === "doubleRent";
+  const singlePassGo = actionType === "passGo";
+  const singleBirthday = actionType === "itsMyBirthday";
+  const singleDebtCollector = actionType === "debtCollector";
 
   const selectedPropertyColor = singleProperty
     ? (selectedCards[0] as PropertyCard).activeColor
     : null;
 
-  const selectedAction = selectedCards.length === 1 &&
-    selectedCards[0].type === "action" &&
-    (selectedCards[0] as ActionCard).action !== "rentWild" &&
-    (selectedCards[0] as ActionCard).action !== "house" &&
-    (selectedCards[0] as ActionCard).action !== "hotel" &&
-    (selectedCards[0] as ActionCard).action !== "doubleRent" &&
-    (selectedCards[0] as ActionCard).action !== "passGo" &&
-    (selectedCards[0] as ActionCard).action !== "itsMyBirthday" &&
-    (selectedCards[0] as ActionCard).action !== "debtCollector"
-    ? selectedCards[0] as ActionCard
-    : null;
-
   const rentCard = singleRent ? selectedCards[0] as RentCard : null;
-  const rentableSets = rentCard ? getRentableSetsByCard(viewPlayer, rentCard) :
-    singleWildRent ? viewPlayer.propertySets : [];
+  const rentableSets = rentCard
+    ? getRentableSetsByCard(viewPlayer, rentCard)
+    : singleWildRent
+      ? viewPlayer.propertySets
+      : [];
+
+  const selectedAction =
+    selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    actionType !== "rentWild" &&
+    actionType !== "house" &&
+    actionType !== "hotel" &&
+    actionType !== "doubleRent" &&
+    actionType !== "passGo" &&
+    actionType !== "itsMyBirthday" &&
+    actionType !== "debtCollector"
+      ? selectedCards[0] as ActionCard
+      : null;
 
   const canEndTurn =
     (game.phase === "actionPhase" || game.phase === "discardPhase") &&
     isMyTurn &&
     currentPlayer.pendingPlacements.length === 0 &&
-    currentPlayer.hand.length <= 7
+    currentPlayer.hand.length <= 7;
+
+  const needsDiscard =
+    isMyTurn &&
+    viewPlayer.hand.length > 7 &&
     game.actionsRemaining === 0;
 
   const pendingPayment =
@@ -192,10 +189,8 @@ export default function Page() {
       game.pendingActions[0].kind === "payDebtCollector")
       ? game.pendingActions[0]
       : null;
-      
-  const needsDiscard = isMyTurn && viewPlayer.hand.length > 7 && game.actionsRemaining === 0;
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   function toggleCardSelection(cardId: string) {
     if (game?.phase === "drawPhase") return;
     const card = viewPlayer.hand.find(c => c.id === cardId);
@@ -204,8 +199,6 @@ export default function Page() {
     if (needsDiscard) {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
       setSelectedPendingId(null);
-      setSelectedSetId(null);
-      setRentSetId(null);
       return;
     }
 
@@ -240,7 +233,9 @@ export default function Page() {
     setSelectedBoardCardId(null);
     setSelectedBoardSetId(null);
     setWildRentTargetPlayerId(null);
-    setWildColorPickerCardId(null);
+  }
+  function showHandoff(toPlayerName: string, reason: string, onReady: () => void) {
+    setHandoff({ toPlayerName, reason, onReady });
   }
 
   function handleEndTurn() {
@@ -248,14 +243,16 @@ export default function Page() {
     const idx = game.players.findIndex(p => p.id === currentPlayer.id);
     const next = game.players[(idx + 1) % game.players.length];
     doEndTurn(() => {
-      setViewingPlayerId(next.id);
-      clearSelection();
+      showHandoff(next.name, "It's your turn!", () => {
+        setViewingPlayerId(next.id);
+        clearSelection();
+        setHandoff(null);
+      });
     });
   }
 
   function handleDiscard() {
-    if (!game) return;
-    if (selectedCardIds.length !== 1) return;
+    if (!game || selectedCardIds.length !== 1) return;
     doDiscard(viewingPlayerId, selectedCardIds[0], () => {
       setSelectedCardIds([]);
     });
@@ -265,14 +262,20 @@ export default function Page() {
     if (!game) return;
     const nextPending = game.pendingActions[1];
     const actingPlayerId = game.currentPlayerId;
+    const actingPlayerName = game.players.find(p => p.id === actingPlayerId)?.name ?? "";
     doConfirmPayment(viewingPlayerId, paymentCardIds, () => {
       setPaymentCardIds([]);
       if (nextPending) {
-        // More payments to resolve — switch to next payer
-        setViewingPlayerId(nextPending.fromPlayerId);
+        const nextPayerName = game.players.find(p => p.id === nextPending.fromPlayerId)?.name ?? "";
+        showHandoff(nextPayerName, "You need to make a payment.", () => {
+          setViewingPlayerId(nextPending.fromPlayerId);
+          setHandoff(null);
+        });
       } else {
-        // All done — switch back to the player whose turn it is
-        setViewingPlayerId(actingPlayerId);
+        showHandoff(actingPlayerName, "All payments done — continue your turn.", () => {
+          setViewingPlayerId(actingPlayerId);
+          setHandoff(null);
+        });
       }
     });
   }
@@ -280,73 +283,15 @@ export default function Page() {
   function handlePlayRent() {
     if (!game || !rentSetId) return;
     const opponents = game.players.filter(p => p.id !== viewPlayer.id);
-    doPlayRentCard(
-      viewPlayer.id,
-      selectedCardIds[0],
-      rentSetId,
-      () => {
-        clearSelection();
-        if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
-      },
-      doubleRentCardId ?? undefined
-    );
-  }
-
-  function handlePlayPassGo(cardId: string) {
-    doPlayPassGo(viewPlayer.id, cardId);
-  }
-
-  function handlePlayBirthday(cardId: string) {
-    if (!game) return;
-    const opponents = game.players.filter(p => p.id !== viewPlayer.id);
-    doPlayItsMyBirthday(viewPlayer.id, cardId, () => {
-      if (opponents.length > 0) setViewingPlayerId(opponents[0].id);
-    });
-  }
-
-  function handlePlayDebtCollector(cardId: string, targetPlayerId: string) {
-    doPlayDebtCollector(viewPlayer.id, cardId, targetPlayerId, () => {
-      setViewingPlayerId(targetPlayerId);
-    });
-  }
-
-  function handlePlaySlyDeal(
-    cardId: string,
-    targetPlayerId: string,
-    targetSetId: string,
-    targetCardId: string
-  ) {
-    doPlaySlyDeal(
-      viewPlayer.id,
-      cardId,
-      targetPlayerId,
-      targetSetId,
-      targetCardId
-    );
-  }
-
-  function handlePlayForcedDeal(
-    cardId: string,
-    targetPlayerId: string,
-    targetSetId: string,
-    targetCardId: string,
-    offeredSetId: string,
-    offeredCardId: string
-  ) {
-    const actingPlayerId = viewPlayer.id;
-    doPlayForcedDeal(
-      viewPlayer.id,
-      cardId,
-      targetPlayerId,
-      targetSetId,
-      targetCardId,
-      offeredSetId,
-      offeredCardId,
-      () => {
-        setSelectedCardIds([]);
-        setViewingPlayerId(actingPlayerId);
+    doPlayRentCard(viewPlayer.id, selectedCardIds[0], rentSetId, () => {
+      clearSelection();
+      if (opponents.length > 0) {
+        showHandoff(opponents[0].name, "You need to pay rent.", () => {
+          setViewingPlayerId(opponents[0].id);
+          setHandoff(null);
+        });
       }
-    );
+    }, doubleRentCardId ?? undefined);
   }
 
   function handlePlayWildRent() {
@@ -354,53 +299,101 @@ export default function Page() {
     const opponents = game.players.filter(p => p.id !== viewPlayer.id);
     const target = wildRentTargetPlayerId ?? (opponents.length === 1 ? opponents[0].id : null);
     if (!target) return;
-    doPlayWildRent(
-      viewPlayer.id,
-      selectedCardIds[0],
-      rentSetId,
-      target,
-      () => {
-        clearSelection();
+    const targetName = game.players.find(p => p.id === target)?.name ?? "";
+    doPlayWildRent(viewPlayer.id, selectedCardIds[0], rentSetId, target, () => {
+      clearSelection();
+      showHandoff(targetName, "You need to pay rent.", () => {
         setViewingPlayerId(target);
-      },
-      doubleRentCardId ?? undefined
-    );
+        setHandoff(null);
+      });
+    }, doubleRentCardId ?? undefined);
   }
 
-  // ── Game over ───────────────────────────────────────────────────────────────
+  function handlePlayPassGo(cardId: string) {
+    doPlayPassGo(viewPlayer.id, cardId);
+    clearSelection();
+  }
+
+  function handlePlayBirthday(cardId: string) {
+    if (!game) return;
+    const opponents = game.players.filter(p => p.id !== viewPlayer.id);
+    doPlayItsMyBirthday(viewPlayer.id, cardId, () => {
+      clearSelection();
+      if (opponents.length > 0) {
+        showHandoff(opponents[0].name, "You need to make a payment.", () => {
+          setViewingPlayerId(opponents[0].id);
+          setHandoff(null);
+        });
+      }
+    });
+  }
+
+  function handlePlayDebtCollector(cardId: string, targetPlayerId: string) {
+    const targetName = game?.players.find(p => p.id === targetPlayerId)?.name ?? "";
+    doPlayDebtCollector(viewPlayer.id, cardId, targetPlayerId, () => {
+      clearSelection();
+      showHandoff(targetName, "You need to make a payment.", () => {
+        setViewingPlayerId(targetPlayerId);
+        setHandoff(null);
+      });
+    });
+  }
+
+  function handlePlaySlyDeal(cardId: string, targetPlayerId: string, targetSetId: string, targetCardId: string) {
+    doPlaySlyDeal(viewPlayer.id, cardId, targetPlayerId, targetSetId, targetCardId);
+    clearSelection();
+  }
+
+  function handlePlayForcedDeal(
+    cardId: string, targetPlayerId: string, targetSetId: string,
+    targetCardId: string, offeredSetId: string, offeredCardId: string
+  ) {
+    const actingPlayerId = viewPlayer.id;
+    doPlayForcedDeal(viewPlayer.id, cardId, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId, () => {
+      clearSelection();
+      setViewingPlayerId(actingPlayerId);
+    });
+  }
+
+  // ── Game over ─────────────────────────────────────────────────────────────────
   if (game.phase === "gameOver") {
     const winner = game.players.find(p => p.id === game.winnerId)!;
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="text-center p-8 max-w-lg w-full">
-          <div className="text-6xl mb-4">🏆</div>
-          <h1 className="text-4xl font-black text-yellow-400 mb-2">
+      <div style={{
+        minHeight: "100vh", background: "#0f1f0f",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+      }}>
+        <div style={{ textAlign: "center", maxWidth: 400, width: "100%" }}>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>🏆</div>
+          <div style={{ color: "#fbbf24", fontSize: 32, fontWeight: 700, marginBottom: 8 }}>
             {winner.name} Wins!
-          </h1>
-          <p className="text-slate-400 mb-8">
+          </div>
+          <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 32 }}>
             Collected {game.config.winCondition} complete property sets
-          </p>
+          </div>
           <button
-            onClick={() => {
-              reset();
-              setViewingPlayerId("p1");
-              clearSelection();
-              setPaymentCardIds([]);
+            onClick={() => { reset(); setViewingPlayerId("p1"); clearSelection(); setPaymentCardIds([]); }}
+            style={{
+              background: "#374151", border: "none", borderRadius: 12,
+              padding: "12px 32px", color: "white", fontSize: 16,
+              fontWeight: 600, cursor: "pointer", marginBottom: 24,
             }}
-            className="px-8 py-3 bg-slate-600 hover:bg-slate-500 text-white font-black rounded-xl text-lg mb-8"
           >
             ← Main Menu
           </button>
-          {/* Game log */}
-          <div className="border border-slate-600 rounded-xl p-3 bg-slate-800/50 text-left">
-            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+          <div style={{
+            background: "#0a170a", border: "1px solid #1f3d1f",
+            borderRadius: 12, padding: 12, textAlign: "left",
+            maxHeight: 300, overflowY: "auto",
+          }}>
+            <div style={{ color: "#6b7280", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
               Game Log
             </div>
             {lastLog.map((entry, i) => (
-              <div
-                key={i}
-                className="text-xs text-slate-400 py-0.5 border-b border-slate-700 last:border-0"
-              >
+              <div key={i} style={{
+                color: "#6b7280", fontSize: 11, padding: "3px 0",
+                borderBottom: "1px solid #1f3d1f",
+              }}>
                 {entry}
               </div>
             ))}
@@ -410,10 +403,19 @@ export default function Page() {
     );
   }
 
-  // ── Main game ───────────────────────────────────────────────────────────────
+  // ── Main game ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4">
-      <div className="max-w-4xl mx-auto">
+    <div style={{ minHeight: "100vh", background: "#0f1f0f", padding: "8px 12px 24px" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+
+        {/* Handoff screen */}
+        {handoff && (
+          <HandoffScreen
+            toPlayerName={handoff.toPlayerName}
+            reason={handoff.reason}
+            onReady={handoff.onReady}
+          />
+        )}
 
         {/* Payment modal */}
         {pendingPayment && (
@@ -428,10 +430,7 @@ export default function Page() {
               )
             }
             onConfirm={handleConfirmPayment}
-            onSwitchToPlayer={id => {
-              setViewingPlayerId(id);
-              setPaymentCardIds([]);
-            }}
+            onSwitchToPlayer={id => { setViewingPlayerId(id); setPaymentCardIds([]); }}
           />
         )}
 
@@ -443,191 +442,185 @@ export default function Page() {
             playerId={viewPlayer.id}
             onPlayPassGo={() => handlePlayPassGo(selectedAction.id)}
             onPlayBirthday={() => handlePlayBirthday(selectedAction.id)}
-            onPlayDebtCollector={targetPlayerId =>
-              handlePlayDebtCollector(selectedAction.id, targetPlayerId)
-            }
+            onPlayDebtCollector={targetPlayerId => handlePlayDebtCollector(selectedAction.id, targetPlayerId)}
             onPlaySlyDeal={(targetPlayerId, targetSetId, targetCardId) =>
-              handlePlaySlyDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId)
-            }
+              handlePlaySlyDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId)}
             onPlayForcedDeal={(targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId) =>
-              handlePlayForcedDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId)
-            }
-            onPlayHouse={setId => {
-              doPlayHouse(viewPlayer.id, selectedAction.id, setId);
-              setSelectedCardIds([]);
-            }}
-            onPlayHotel={setId => {
-              doPlayHotel(viewPlayer.id, selectedAction.id, setId);
-              setSelectedCardIds([]);
-            }}
+              handlePlayForcedDeal(selectedAction.id, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId)}
+            onPlayHouse={setId => { doPlayHouse(viewPlayer.id, selectedAction.id, setId); clearSelection(); }}
+            onPlayHotel={setId => { doPlayHotel(viewPlayer.id, selectedAction.id, setId); clearSelection(); }}
             onPlayWildRent={(setId, targetPlayerId) => {
-              const opponents = game.players.filter(p => p.id !== viewPlayer.id);
-              doPlayRentCard(
-                viewPlayer.id,
-                selectedAction.id,
-                setId,
-                () => {
-                  setSelectedCardIds([]);
-                  if (opponents.length > 0) setViewingPlayerId(targetPlayerId);
-                },
-                undefined,
-                targetPlayerId
-              );
+              doPlayRentCard(viewPlayer.id, selectedAction.id, setId, () => {
+                clearSelection();
+                setViewingPlayerId(targetPlayerId);
+              }, undefined, targetPlayerId);
             }}
-            onBank={() => {
-              doBankCards(viewPlayer.id, [selectedAction.id]);
-              setSelectedCardIds([]);
-            }}
-            onCancel={() => setSelectedCardIds([])}
+            onBank={() => { doBankCards(viewPlayer.id, [selectedAction.id]); clearSelection(); }}
+            onCancel={() => clearSelection()}
           />
         )}
 
-        <GameHeader
-          game={game}
-          currentPlayer={currentPlayer}
-          error={error}
-          onClearError={clearError}
-        />
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 0 10px",
+        }}>
+          <div style={{ color: "#4ade80", fontSize: 16, fontWeight: 700 }}>Monopoly Deal</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div style={{
+              background: "#0a170a", border: "1px solid #1f3d1f",
+              borderRadius: 6, padding: "3px 8px",
+              color: "#6b7280", fontSize: 10,
+            }}>
+              {game.phase}
+            </div>
+            <div style={{
+              background: "#0a170a", border: "1px solid #1f3d1f",
+              borderRadius: 6, padding: "3px 8px",
+              color: "#6b7280", fontSize: 10,
+            }}>
+              Deck: {game.deck.length}
+            </div>
+          </div>
+        </div>
 
-        {/* Pass & play switcher */}
-        <div className="flex gap-2 mb-4">
+        {/* Error toast */}
+        {error && (
+          <div style={{
+            background: "#450a0a", border: "1px solid #991b1b",
+            borderRadius: 8, padding: "8px 12px", marginBottom: 8,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <span style={{ color: "#fca5a5", fontSize: 12 }}>⚠️ {error}</span>
+            <button onClick={clearError} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer" }}>✕</button>
+          </div>
+        )}
+
+        {/* Player switcher */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
           {game.players.map(p => (
             <button
               key={p.id}
-              onClick={() => {
-                setViewingPlayerId(p.id);
-                clearSelection();
+              onClick={() => { setViewingPlayerId(p.id); clearSelection(); }}
+              style={{
+                flex: 1, padding: "6px 0",
+                background: viewPlayer.id === p.id ? "#16a34a" : "#0a170a",
+                border: `1px solid ${viewPlayer.id === p.id ? "#4ade80" : "#1f3d1f"}`,
+                borderRadius: 8, color: viewPlayer.id === p.id ? "white" : "#6b7280",
+                fontSize: 11, fontWeight: 600, cursor: "pointer",
               }}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
-                viewPlayer.id === p.id
-                  ? "bg-emerald-700 border-emerald-400 text-white"
-                  : "bg-slate-700 border-slate-500 text-slate-300 hover:border-slate-300"
-              }`}
             >
               {p.name} {p.id === currentPlayer.id ? "🎯" : ""}
             </button>
           ))}
         </div>
 
-        {/* Player boards */}
-        {game.players.map(player => (
-          <PlayerBoard
-            key={player.id}
-            player={player}
+        {/* Opponent strips */}
+        {game.players.filter(p => p.id !== viewPlayer.id).map(p => (
+          <OpponentStrip
+            key={p.id}
+            player={p}
             game={game}
-            isCurrentTurn={player.id === currentPlayer.id}
-            isViewing={player.id === viewPlayer.id}
+            isCurrentTurn={p.id === currentPlayer.id}
             isMyTurn={isMyTurn}
-            selectedCardIds={player.id === viewPlayer.id ? selectedCardIds : []}
-            selectedPropertyColor={selectedPropertyColor}
-            rentableSets={rentableSets}
-            rentSetId={rentSetId}
-            allMoney={allMoney}
-            singleRent={singleRent}
-            singleNonPropertyNonMoney={singleNonPropertyNonMoney}
-            singlePassGo={singlePassGo}
-            singleBirthday={singleBirthday}
             singleDebtCollector={singleDebtCollector}
+            onPlayDebtCollector={targetPlayerId =>
+              handlePlayDebtCollector(selectedCardIds[0], targetPlayerId)
+            }
             singleWildRent={singleWildRent}
-            singleHouse={singleHouse}
-            singleHotel={singleHotel}
-            singleDoubleRent={singleDoubleRent}
-            canEndTurn={canEndTurn}
-            needsDiscard={player.id === viewPlayer.id && needsDiscard}
-            pendingPlacements={player.pendingPlacements}
-            onToggleCard={toggleCardSelection}
-            selectedPendingId={player.id === viewPlayer.id ? selectedPendingId : null}
-            doubleRentCardId={doubleRentCardId}
             wildRentTargetPlayerId={wildRentTargetPlayerId}
-            onSelectPending={id => {
-              setSelectedPendingId(id === selectedPendingId ? null : id)
-              setSelectedCardIds([]);
-              setSelectedSetId(null);
-              setRentSetId(null);
-            }}
-            onAddToSet={setId => {
-              doPlacePropertyIntoSet(viewPlayer.id, selectedCardIds[0], setId);
-              clearSelection();
-            }}
-            onNewSet={() => {
-              doPlacePropertyAsNewSet(viewPlayer.id, selectedCardIds[0]);
-              clearSelection();
-            }}
-            onSelectRentSet={setId =>
-              setRentSetId(prev => prev === setId ? null : setId)
-            }
-            onBankCards={() => {
-              doBankCards(viewPlayer.id, selectedCardIds);
-              clearSelection();
-            }}
-            onPlayPassGo={() => {
-              handlePlayPassGo(selectedCardIds[0]);
-              clearSelection();
-            }}
-            onPlayBirthday={() => {
-              handlePlayBirthday(selectedCardIds[0]);
-            }}
-            onPlayDebtCollector={targetPlayerId => {
-              handlePlayDebtCollector(selectedCardIds[0], targetPlayerId);
-            }}
-            onPlayRent={handlePlayRent}
-            onDrawCards={doStartTurn}
-            onEndTurn={handleEndTurn}
-            onDiscard={handleDiscard}
-            onPlacePending={(cardId, targetSetId) =>
-              doPlacePendingProperty(player.id, cardId, targetSetId)
-            }
-            onSetWildRentTarget={id =>
-              setWildRentTargetPlayerId(prev => prev === id ? null : id)
-            }
-            onPlayWildRent={handlePlayWildRent}
-            onToggleDoubleRent={cardId =>
-              setDoubleRentCardId(prev => prev === cardId ? null : cardId)
-            }
-            selectedBoardCardId={player.id === viewPlayer.id ? selectedBoardCardId : null}
-            selectedBoardSetId={player.id === viewPlayer.id ? selectedBoardSetId : null}
-            onSelectBoardCard={(cardId, setId) => {
-              if (selectedBoardCardId === cardId) {
-                setSelectedBoardCardId(null);
-                setSelectedBoardSetId(null);
-              } else {
-                setSelectedBoardCardId(cardId);
-                setSelectedBoardSetId(setId);
-                setSelectedCardIds([]);
-                setSelectedPendingId(null);
-              }
-            }}
-            onMoveToSet={toSetId => {
-              if (!selectedBoardCardId || !selectedBoardSetId) return;
-              doMovePropertyBetweenSets(viewPlayer.id, selectedBoardCardId, selectedBoardSetId, toSetId);
-              setSelectedBoardCardId(null);
-              setSelectedBoardSetId(null);
-            }}
-            onAddHouse={setId => {
-              doPlayHouse(viewPlayer.id, selectedCardIds[0], setId);
-              clearSelection();
-            }}
-            onAddHotel={setId => {
-              doPlayHotel(viewPlayer.id, selectedCardIds[0], setId);
-              clearSelection();
-            }}
-            onNewSetWithColor={color => {
-              doPlacePropertyAsNewSet(viewPlayer.id, selectedCardIds[0], color);
-              clearSelection();
-            }}
+            rentSetId={rentSetId}
+            onSetWildRentTarget={id => setWildRentTargetPlayerId(prev => prev === id ? null : id)}
           />
         ))}
 
+        {/* My board */}
+        <MyBoard
+          player={viewPlayer}
+          game={game}
+          isMyTurn={isMyTurn}
+          selectedCardIds={selectedCardIds}
+          selectedPropertyColor={selectedPropertyColor}
+          selectedPendingId={selectedPendingId}
+          selectedBoardCardId={selectedBoardCardId}
+          selectedBoardSetId={selectedBoardSetId}
+          rentSetId={rentSetId}
+          rentableSets={rentableSets}
+          doubleRentCardId={doubleRentCardId}
+          singleProperty={singleProperty}
+          singleRent={singleRent}
+          singleWildRent={singleWildRent}
+          singleHouse={singleHouse}
+          singleHotel={singleHotel}
+          singleDebtCollector={singleDebtCollector}
+          allMoney={allMoney}
+          singleNonPropertyNonMoney={singleNonPropertyNonMoney}
+          singleDoubleRent={singleDoubleRent}
+          singlePassGo={singlePassGo}
+          singleBirthday={singleBirthday}
+          canEndTurn={canEndTurn}
+          needsDiscard={needsDiscard}
+          wildRentTargetPlayerId={wildRentTargetPlayerId}
+          onAddToSet={setId => { doPlacePropertyIntoSet(viewPlayer.id, selectedCardIds[0], setId); clearSelection(); }}
+          onNewSet={() => { doPlacePropertyAsNewSet(viewPlayer.id, selectedCardIds[0]); clearSelection(); }}
+          onNewSetWithColor={color => { doPlacePropertyAsNewSet(viewPlayer.id, selectedCardIds[0], color); clearSelection(); }}
+          onSelectRentSet={setId => setRentSetId(prev => prev === setId ? null : setId)}
+          onSelectBoardCard={(cardId, setId) => {
+            if (selectedBoardCardId === cardId) {
+              setSelectedBoardCardId(null);
+              setSelectedBoardSetId(null);
+            } else {
+              setSelectedBoardCardId(cardId);
+              setSelectedBoardSetId(setId);
+              setSelectedCardIds([]);
+              setSelectedPendingId(null);
+            }
+          }}
+          onMoveToSet={toSetId => {
+            if (!selectedBoardCardId || !selectedBoardSetId) return;
+            doMovePropertyBetweenSets(viewPlayer.id, selectedBoardCardId, selectedBoardSetId, toSetId);
+            setSelectedBoardCardId(null);
+            setSelectedBoardSetId(null);
+          }}
+          onBankCards={() => { doBankCards(viewPlayer.id, selectedCardIds); clearSelection(); }}
+          onPlayPassGo={() => handlePlayPassGo(selectedCardIds[0])}
+          onPlayBirthday={() => handlePlayBirthday(selectedCardIds[0])}
+          onPlayRent={handlePlayRent}
+          onPlayWildRent={handlePlayWildRent}
+          onToggleDoubleRent={cardId => setDoubleRentCardId(prev => prev === cardId ? null : cardId)}
+          onAddHouse={setId => { doPlayHouse(viewPlayer.id, selectedCardIds[0], setId); clearSelection(); }}
+          onAddHotel={setId => { doPlayHotel(viewPlayer.id, selectedCardIds[0], setId); clearSelection(); }}
+          onDiscard={handleDiscard}
+          onEndTurn={handleEndTurn}
+          onDrawCards={doStartTurn}
+          onPlacePending={(cardId, targetSetId) => doPlacePendingProperty(viewPlayer.id, cardId, targetSetId)}
+          onSelectPending={id => {
+            setSelectedPendingId(id === selectedPendingId ? null : id);
+            setSelectedCardIds([]);
+            setSelectedSetId(null);
+            setRentSetId(null);
+          }}
+        />
+
+        {/* My hand */}
+        <MyHand
+          cards={viewPlayer.hand}
+          selectedCardIds={selectedCardIds}
+          needsDiscard={needsDiscard}
+          onToggleCard={toggleCardSelection}
+        />
+
         {/* Game log */}
-        <div className="border border-slate-600 rounded-xl p-3 bg-slate-800/50">
-          <div className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-2">
+        <div style={{
+          marginTop: 12, background: "#0a170a",
+          border: "1px solid #1f3d1f", borderRadius: 10, padding: 10,
+          maxHeight: 120, overflowY: "auto",
+        }}>
+          <div style={{ color: "#4b5563", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
             Game Log
           </div>
           {game.log.map((entry, i) => (
-            <div
-              key={i}
-              className="text-xs text-slate-400 py-0.5 border-b border-slate-700 last:border-0"
-            >
+            <div key={i} style={{ color: "#4b5563", fontSize: 11, padding: "2px 0", borderBottom: "1px solid #1a2e1a" }}>
               {entry}
             </div>
           ))}

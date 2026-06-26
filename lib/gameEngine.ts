@@ -5,6 +5,10 @@ import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCa
 import { getTotalAssets } from "./bankUtils";
 import { PROPERTY_RULES } from "../data/propertyRules";
 
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
 export function createPlayer(id: string, name: string): Player {
   return {
     id,
@@ -18,7 +22,7 @@ export function createPlayer(id: string, name: string): Player {
 
 export function createGame(players: Player[]): Game {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     players,
     deck: [],
     discardPile: [],
@@ -172,7 +176,7 @@ export function placePropertyAsNewSet(
   }
 
   player.propertySets.push({
-    id: crypto.randomUUID(),
+    id: generateId(),
     color: (card as PropertyCard).activeColor,
     properties: [card as PropertyCard],
     hasHouse: false,
@@ -422,7 +426,7 @@ export function placePendingProperty(
   if (targetSetId === null) {
     // New set
     player.propertySets.push({
-      id: crypto.randomUUID(),
+      id: generateId(),
       color: card.activeColor,
       properties: [card],
       hasHouse: false,
