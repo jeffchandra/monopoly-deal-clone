@@ -24,6 +24,9 @@ interface PlayerBoardProps {
   doubleRentCardId: string | null;
   selectedBoardCardId: string | null;
   selectedBoardSetId: string | null;
+  singlePassGo: boolean;
+  singleBirthday: boolean;
+  singleDebtCollector: boolean;
   singleWildRent: boolean;
   wildRentTargetPlayerId: string | null;
   singleHouse: boolean;
@@ -44,6 +47,9 @@ interface PlayerBoardProps {
   onSelectBoardCard: (cardId: string, setId: string) => void;
   onMoveToSet: (toSetId: string) => void;
   onSetWildRentTarget: (id: string) => void;
+  onPlayPassGo: () => void;
+  onPlayBirthday: () => void;
+  onPlayDebtCollector: (targetPlayerId: string) => void;
   onPlayWildRent: () => void;
   onAddHouse: (setId: string) => void;
   onAddHotel: (setId: string) => void;
@@ -70,6 +76,9 @@ export function PlayerBoard({
   doubleRentCardId,
   selectedBoardCardId,
   selectedBoardSetId,
+  singlePassGo,
+  singleBirthday,
+  singleDebtCollector,
   singleWildRent,
   wildRentTargetPlayerId,
   singleHouse,
@@ -90,6 +99,9 @@ export function PlayerBoard({
   onSelectBoardCard,
   onMoveToSet,
   onSetWildRentTarget,
+  onPlayPassGo,
+  onPlayBirthday,
+  onPlayDebtCollector,
   onPlayWildRent,
   onAddHouse,
   onAddHotel,
@@ -131,6 +143,16 @@ export function PlayerBoard({
           )}
           {isViewing && (
             <span className="text-xs text-blue-400 font-medium">👁 Viewing</span>
+          )}
+
+          {/* Debt Collector target button — shown on opponent boards */}
+          {!isViewing && isMyTurn && singleDebtCollector && (
+            <button
+              onClick={() => onPlayDebtCollector(player.id)}
+              className="bg-orange-600 hover:bg-orange-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+            >
+              Collect $5M
+            </button>
           )}
         </div>
 
@@ -234,6 +256,30 @@ export function PlayerBoard({
           </>
         )}
       </div>
+
+      {/* Pass Go — play or bank inline */}
+      {isMyTurn && isViewing && game.phase === "actionPhase" && singlePassGo && (
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={onPlayPassGo}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+          >
+            Draw 2 Cards
+          </button>
+        </div>
+      )}
+
+      {/* It's My Birthday — play or bank inline */}
+      {isMyTurn && isViewing && game.phase === "actionPhase" && singleBirthday && (
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={onPlayBirthday}
+            className="bg-pink-600 hover:bg-pink-500 text-white font-semibold px-3 py-1.5 rounded-lg text-xs"
+          >
+            🎂 Everyone pays $2M
+          </button>
+        </div>
+      )}
 
       {/* ── Property sets ── */}
       <div className="mb-3">

@@ -99,7 +99,7 @@ export function createDeck(): Card[] {
   }
 
   // Pass Go x10
-  for (let i = 0; i < 0; i++) {
+  for (let i = 0; i < 10; i++) {
     cards.push(act("Pass Go", 1, "passGo"));
   }
 

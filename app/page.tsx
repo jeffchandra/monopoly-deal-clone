@@ -128,6 +128,19 @@ export default function Page() {
     selectedCards.length === 1 &&
     selectedCards[0].type !== "property" &&
     selectedCards[0].type !== "money";
+
+  const singlePassGo = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "passGo";
+
+  const singleBirthday = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "itsMyBirthday";
+
+  const singleDebtCollector = selectedCards.length === 1 &&
+    selectedCards[0].type === "action" &&
+    (selectedCards[0] as ActionCard).action === "debtCollector";
+
   const singleWildRent = selectedCards.length === 1 &&
     selectedCards[0].type === "action" &&
     (selectedCards[0] as ActionCard).action === "rentWild";
@@ -153,7 +166,10 @@ export default function Page() {
     (selectedCards[0] as ActionCard).action !== "rentWild" &&
     (selectedCards[0] as ActionCard).action !== "house" &&
     (selectedCards[0] as ActionCard).action !== "hotel" &&
-    (selectedCards[0] as ActionCard).action !== "doubleRent"
+    (selectedCards[0] as ActionCard).action !== "doubleRent" &&
+    (selectedCards[0] as ActionCard).action !== "passGo" &&
+    (selectedCards[0] as ActionCard).action !== "itsMyBirthday" &&
+    (selectedCards[0] as ActionCard).action !== "debtCollector"
     ? selectedCards[0] as ActionCard
     : null;
 
@@ -509,6 +525,9 @@ export default function Page() {
             allMoney={allMoney}
             singleRent={singleRent}
             singleNonPropertyNonMoney={singleNonPropertyNonMoney}
+            singlePassGo={singlePassGo}
+            singleBirthday={singleBirthday}
+            singleDebtCollector={singleDebtCollector}
             singleWildRent={singleWildRent}
             singleHouse={singleHouse}
             singleHotel={singleHotel}
@@ -540,6 +559,16 @@ export default function Page() {
             onBankCards={() => {
               doBankCards(viewPlayer.id, selectedCardIds);
               clearSelection();
+            }}
+            onPlayPassGo={() => {
+              handlePlayPassGo(selectedCardIds[0]);
+              clearSelection();
+            }}
+            onPlayBirthday={() => {
+              handlePlayBirthday(selectedCardIds[0]);
+            }}
+            onPlayDebtCollector={targetPlayerId => {
+              handlePlayDebtCollector(selectedCardIds[0], targetPlayerId);
             }}
             onPlayRent={handlePlayRent}
             onDrawCards={doStartTurn}
