@@ -28,7 +28,7 @@ export default function Page() {
   const [doubleRentCardId, setDoubleRentCardId] = useState<string | null>(null);
   const [paymentCardIds, setPaymentCardIds] = useState<string[]>([]);
   const [viewingPlayerId, setViewingPlayerId] = useState<string>("p1");
-  const [playerNames, setPlayerNames] = useState<string[]>(["Alice", "Bob"]);
+  const [playerNames, setPlayerNames] = useState<string[]>(["Player 1", "Player 2"]);
   const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
   const [selectedBoardCardId, setSelectedBoardCardId] = useState<string | null>(null);
   const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
