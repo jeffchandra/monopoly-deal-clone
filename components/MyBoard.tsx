@@ -1,6 +1,6 @@
 "use client";
 import { Player, Game, PropertySet } from "../types/game";
-import { PropertyCard, ActionCard } from "../types/card";
+import { PropertyCard, ActionCard, PropertyColor } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
 import { isSetComplete, getRentForSet } from "../lib/propertyUtils";
 
@@ -51,6 +51,7 @@ interface MyBoardProps {
   onDrawCards: () => void;
   onPlacePending: (cardId: string, targetSetId: string | null) => void;
   onSelectPending: (cardId: string) => void;
+  onMoveWildToNewColor: (cardId: string, fromSetId: string, newColor: PropertyColor) => void;
   wildRentTargetPlayerId: string | null;
 }
 
@@ -98,6 +99,7 @@ export function MyBoard({
   onDrawCards,
   onPlacePending,
   onSelectPending,
+  onMoveWildToNewColor,
   wildRentTargetPlayerId,
 }: MyBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
@@ -369,24 +371,9 @@ export function MyBoard({
                     {complete && <span style={{ color: "#fbbf24", fontSize: 9 }}>✓</span>}
                     {set.hasHouse && <span style={{ fontSize: 9 }}>🏠</span>}
                     {set.hasHotel && <span style={{ fontSize: 9 }}>🏨</span>}
-                    {isRentTarget && (
-                      <span style={{ color: "#f87171", fontSize: 9, marginLeft: "auto" }}>
-                        ${getRentForSet(set)}M
-                      </span>
-                    )}
-                    {isMoveTarget && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onMoveToSet(set.id); }}
-                        style={{
-                          marginLeft: "auto", background: "#1d4ed8", color: "white",
-                          border: "none", borderRadius: 4, padding: "1px 6px",
-                          fontSize: 9, fontWeight: 600, cursor: "pointer",
-                        }}
-                      >
-                        Move here
-                      </button>
-                    )}
-                    {isMatchingColor && (
+
+                    {/* Right side — only one thing at a time */}
+                    {isMatchingColor ? (
                       <button
                         onClick={e => {
                           e.stopPropagation();
@@ -405,8 +392,18 @@ export function MyBoard({
                       >
                         Add
                       </button>
-                    )}
-                    {isHouseTarget && (
+                    ) : isMoveTarget ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); onMoveToSet(set.id); }}
+                        style={{
+                          marginLeft: "auto", background: "#1d4ed8", color: "white",
+                          border: "none", borderRadius: 4, padding: "1px 6px",
+                          fontSize: 9, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        Move here
+                      </button>
+                    ) : isHouseTarget ? (
                       <button
                         onClick={e => { e.stopPropagation(); onAddHouse(set.id); }}
                         style={{
@@ -417,8 +414,7 @@ export function MyBoard({
                       >
                         🏠 Add
                       </button>
-                    )}
-                    {isHotelTarget && (
+                    ) : isHotelTarget ? (
                       <button
                         onClick={e => { e.stopPropagation(); onAddHotel(set.id); }}
                         style={{
@@ -429,6 +425,10 @@ export function MyBoard({
                       >
                         🏨 Add
                       </button>
+                    ) : (
+                      <span style={{ color: isRentTarget ? "#f87171" : "#4ade80", fontSize: 9, marginLeft: "auto" }}>
+                        ${getRentForSet(set)}M{isRentTarget ? " rent" : ""}
+                      </span>
                     )}
                   </div>
 
@@ -587,6 +587,53 @@ export function MyBoard({
             )}
           </div>
         )}
+
+        {/* New set option for wild card on board */}
+        {isMyTurn && game.phase === "actionPhase" &&
+          selectedBoardCardId !== null && selectedBoardSetId !== null && (() => {
+            const movingCard = player.propertySets
+              .flatMap(s => s.properties)
+              .find(c => c.id === selectedBoardCardId) as PropertyCard | undefined;
+            const fromSet = player.propertySets.find(s => s.id === selectedBoardSetId);
+            if (!movingCard || !fromSet || movingCard.colors.length <= 1) return null;
+            if (isSetComplete(fromSet)) return null;
+
+            // Show color options for colors not already the active color
+            const otherColors = movingCard.colors.filter(c => c !== fromSet.color);
+            return (
+              <div style={{ marginTop: 6 }}>
+                <div style={{ color: "#9ca3af", fontSize: 10, marginBottom: 4 }}>
+                  Move wild to new set as:
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {otherColors.map(color => {
+                    const r = PROPERTY_RULES[color];
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          onMoveWildToNewColor(selectedBoardCardId, selectedBoardSetId, color);
+                        }}
+                        style={{
+                          background: r.color + "33",
+                          border: `1px solid ${r.color}`,
+                          borderRadius: 6, padding: "3px 8px",
+                          color: "white", fontSize: 10, fontWeight: 500,
+                          cursor: "pointer",
+                          display: "flex", alignItems: "center", gap: 4,
+                          minHeight: 32,
+                        }}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color }} />
+                        {r.displayName}
+                      </button>
+                    );
+                  })}
+                </div>
+            </div>
+            );
+        })()
+        }
       </div>
     </div>
   );

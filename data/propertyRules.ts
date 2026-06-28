@@ -34,7 +34,7 @@ export const PROPERTY_RULES: Record<PropertyColor, PropertyRule> = {
     setSize: 3,
     rentTiers: [1, 3, 5],
     displayName: "Orange",
-    color: "#FFA500",
+    color: "#FF6600",
     textColor: "#fff",
   },
   red: {

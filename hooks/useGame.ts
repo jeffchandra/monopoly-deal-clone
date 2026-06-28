@@ -23,6 +23,7 @@ import {
   getPayableSources,
   confirmPayment,
   movePropertyBetweenSets,
+  moveWildToNewColor,
 } from "../lib/gameEngine";
 import { Game } from "../types/game";
 import { Card, PropertyColor } from "../types/card";
@@ -172,6 +173,10 @@ export function useGame() {
     update(g => playWildRent(g, playerId, cardId, setId, targetPlayerId, doubleRentCardId), onSuccess);
   }
 
+  function doMoveWildToNewColor(playerId: string, cardId: string, fromSetId: string, newColor: PropertyColor) {
+    update(g => moveWildToNewColor(g, playerId, cardId, fromSetId, newColor));
+  }
+
   return {
     game,
     error,
@@ -198,6 +203,7 @@ export function useGame() {
     doPlayHouse,
     doPlayHotel,
     doPlayWildRent,
+    doMoveWildToNewColor,
     reset,
   }
 }

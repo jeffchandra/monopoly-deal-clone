@@ -19,7 +19,7 @@ export default function Page() {
     doPlayRentCard, doConfirmPayment, doPlacePendingProperty,
     doPlayPassGo, doPlayItsMyBirthday, doPlayDebtCollector,
     doPlaySlyDeal, doPlayForcedDeal, doPlayHouse, doPlayHotel,
-    doMovePropertyBetweenSets, doPlayWildRent,
+    doMovePropertyBetweenSets, doPlayWildRent, doMoveWildToNewColor,
   } = useGame();
 
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
@@ -599,6 +599,11 @@ export default function Page() {
             setSelectedCardIds([]);
             setSelectedSetId(null);
             setRentSetId(null);
+          }}
+          onMoveWildToNewColor={(cardId, fromSetId, color) => {
+            doMoveWildToNewColor(viewPlayer.id, cardId, fromSetId, color);
+            setSelectedBoardCardId(null);
+            setSelectedBoardSetId(null);
           }}
         />
 

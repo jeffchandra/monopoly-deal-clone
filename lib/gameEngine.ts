@@ -307,7 +307,13 @@ export function confirmPayment(
         if (set.properties.length === 0) {
           payer.propertySets = payer.propertySets.filter(s => s.id !== set.id);
         }
-        receiver.pendingPlacements.push(card);
+        receiver.propertySets.push({
+          id: generateId(),
+          color: card.activeColor,
+          properties: [card],
+          hasHouse: false,
+          hasHotel: false,
+        });
         break;
       }
     }
@@ -576,8 +582,13 @@ export function playSlyDeal(
     target.propertySets = target.propertySets.filter(s => s.id !== targetSetId);
   }
 
-  // Add to pending placements so player can choose where to put it
-  player.pendingPlacements.push(stolenCard);
+  player.propertySets.push({
+    id: generateId(),
+    color: stolenCard.activeColor,
+    properties: [stolenCard],
+    hasHouse: false,
+    hasHotel: false,
+  });
 
   addLog(game, `${player.name} sly dealt ${stolenCard.name} from ${target.name}.`);
   checkWinCondition(game);
@@ -634,9 +645,20 @@ export function playForcedDeal(
     player.propertySets = player.propertySets.filter(s => s.id !== offeredSetId);
   }
 
-  // Both go to pending placements so players can choose where to put them
-  player.pendingPlacements.push(takenCard);
-  target.pendingPlacements.push(givenCard);
+  player.propertySets.push({
+    id: generateId(),
+    color: takenCard.activeColor,
+    properties: [takenCard],
+    hasHouse: false,
+    hasHotel: false,
+  });
+  target.propertySets.push({
+    id: generateId(),
+    color: givenCard.activeColor,
+    properties: [givenCard],
+    hasHouse: false,
+    hasHotel: false,
+  });
 
   addLog(game, `${player.name} forced a deal — swapped ${givenCard.name} for ${takenCard.name} from ${target.name}.`);
   checkWinCondition(game);
@@ -793,4 +815,38 @@ export function playWildRent(
     game,
     `${player.name} charged ${target.name} $${amount}M Wild Rent on ${PROPERTY_RULES[set.color].displayName}${multiplier === 2 ? " (doubled!)" : ""}.`
   );
+}
+
+export function moveWildToNewColor(
+  game: Game,
+  playerId: string,
+  cardId: string,
+  fromSetId: string,
+  newColor: PropertyColor
+): void {
+  const player = getPlayerById(game, playerId);
+  const fromSet = player.propertySets.find(s => s.id === fromSetId);
+  if (!fromSet) throw new Error("Source set not found");
+  if (isSetComplete(fromSet)) throw new Error("Cannot move from a complete set");
+
+  const cardIdx = fromSet.properties.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found");
+
+  const card = fromSet.properties.splice(cardIdx, 1)[0] as PropertyCard;
+  if (!card.colors.includes(newColor)) throw new Error("Invalid color for this wild");
+
+  if (fromSet.properties.length === 0) {
+    player.propertySets = player.propertySets.filter(s => s.id !== fromSetId);
+  }
+
+  card.activeColor = newColor;
+  player.propertySets.push({
+    id: generateId(),
+    color: newColor,
+    properties: [card],
+    hasHouse: false,
+    hasHotel: false,
+  });
+
+  addLog(game, `${player.name} moved ${card.name} to a new ${PROPERTY_RULES[newColor].displayName} set.`);
 }

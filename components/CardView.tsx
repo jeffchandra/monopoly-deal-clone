@@ -1,5 +1,5 @@
 "use client";
-import { Card, PropertyCard, RentCard, ActionCard } from "../types/card";
+import { Card, PropertyCard, RentCard, ActionCard, PropertyColor } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
 
 interface CardViewProps {
@@ -11,10 +11,20 @@ interface CardViewProps {
 }
 
 const SIZES = {
-  sm: { width: 52, height: 74, bandHeight: 16, nameFontSize: 7, valueFontSize: 9, subFontSize: 7 },
-  md: { width: 68, height: 96, bandHeight: 20, nameFontSize: 9, valueFontSize: 11, subFontSize: 8 },
-  lg: { width: 84, height: 118, bandHeight: 24, nameFontSize: 10, valueFontSize: 13, subFontSize: 9 },
+  sm: { width: 80, height: 104, bandHeight: 20, nameFontSize: 9, valueFontSize: 11, subFontSize: 8 },
+  md: { width: 100, height: 148, bandHeight: 22, nameFontSize: 11, valueFontSize: 13, subFontSize: 9 },
+  lg: { width: 120, height: 168, bandHeight: 26, nameFontSize: 12, valueFontSize: 15, subFontSize: 10 },
 };
+
+const COLOR_ORDER = [
+  "brown", "lightBlue", "pink", "orange",
+  "red", "yellow", "green", "darkBlue",
+  "railroad", "utility"
+];
+
+function sortColors(colors: PropertyColor[]): PropertyColor[] {
+  return [...colors].sort((a, b) => COLOR_ORDER.indexOf(a) - COLOR_ORDER.indexOf(b));
+}
 
 export function CardView({ card, selected, dimmed, onClick, size = "md" }: CardViewProps) {
   const s = SIZES[size];
@@ -70,10 +80,10 @@ function PropertyBand({ card, height }: { card: PropertyCard; height: number }) 
     const rule = PROPERTY_RULES[card.activeColor];
     return <div style={{ height, background: rule.color, flexShrink: 0 }} />;
   }
-  // Wild card — split band
+  const sorted = sortColors(card.colors);
   return (
     <div style={{ height, display: "flex", flexShrink: 0 }}>
-      {card.colors.map(c => (
+      {sorted.map(c => (
         <div key={c} style={{ flex: 1, background: PROPERTY_RULES[c].color }} />
       ))}
     </div>
@@ -81,11 +91,24 @@ function PropertyBand({ card, height }: { card: PropertyCard; height: number }) 
 }
 
 function RentBand({ card, height }: { card: RentCard; height: number }) {
+  const sorted = sortColors(card.rentableColors);
   return (
-    <div style={{ height, display: "flex", flexShrink: 0 }}>
-      {card.rentableColors.map(c => (
+    <div style={{ position: "relative", height: height * 1.5, display: "flex", flexShrink: 0 }}>
+      {sorted.map(c => (
         <div key={c} style={{ flex: 1, background: PROPERTY_RULES[c].color }} />
       ))}
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <span style={{
+          background: "rgba(0,0,0,0.6)", color: "white",
+          fontSize: 7, fontWeight: 700, padding: "1px 4px",
+          borderRadius: 3, letterSpacing: 0.5,
+        }}>
+          RENT
+        </span>
+      </div>
     </div>
   );
 }
@@ -148,17 +171,20 @@ function RegularBody({ card, nameFontSize, valueFontSize, subFontSize }: {
       </div>
       <div>
         {propCard && (
-          <div style={{ fontSize: subFontSize, color: "#6b7280" }}>
-            {propCard.colors.length > 2
-              ? "All Colors"
-              : propCard.colors.length > 1
-                ? propCard.colors.map(c => PROPERTY_RULES[c].displayName).join("/")
-                : PROPERTY_RULES[propCard.activeColor].displayName}
-          </div>
+          <>
+            <div style={{ fontSize: subFontSize, color: "#6b7280" }}>
+              {propCard.colors.length > 2
+                ? "All Colors"
+                : propCard.colors.length > 1
+                  ? sortColors(propCard.colors).map(c => PROPERTY_RULES[c].displayName).join("/")
+                  : PROPERTY_RULES[propCard.activeColor].displayName}
+            </div>
+            <RentTiers card={propCard} fontSize={subFontSize} />
+          </>
         )}
         {rentCard && (
           <div style={{ fontSize: subFontSize, color: "#6b7280" }}>
-            {rentCard.rentableColors.map(c => PROPERTY_RULES[c].displayName).join("/")}
+            {sortColors(rentCard.rentableColors).map(c => PROPERTY_RULES[c].displayName).join("/")}
           </div>
         )}
         {actionCard && (
@@ -171,6 +197,29 @@ function RegularBody({ card, nameFontSize, valueFontSize, subFontSize }: {
         </div>
       </div>
     </>
+  );
+}
+
+function RentTiers({ card, fontSize }: { card: PropertyCard; fontSize: number }) {
+  const rule = PROPERTY_RULES[card.activeColor];
+  if (!rule) return null;
+  return (
+    <div style={{ marginTop: 2 }}>
+      {rule.rentTiers.map((rent, i) => {
+        const isFull = i === rule.setSize - 1;
+        return (
+          <div key={i} style={{
+            display: "flex", justifyContent: "space-between",
+            fontSize: fontSize - 1,
+            color: isFull ? "#15803d" : "#6b7280",
+            fontWeight: 400,
+          }}>
+            <span>{i + 1}{i === 0 ? " card" : " cards"}:</span>
+            <span>${rent}M</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
