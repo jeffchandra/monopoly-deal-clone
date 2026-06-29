@@ -34,6 +34,10 @@ export default function Page() {
   const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
   const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
   const [handoff, setHandoff] = useState<{ toPlayerName: string; reason: string; onReady: () => void } | null>(null);
+  const [organizingForForcedDeal, setOrganizingForForcedDeal] = useState<{
+    actingPlayerId: string;
+    actingPlayerName: string;
+  } | null>(null);
 
   // ── Setup screen ─────────────────────────────────────────────────────────────
   if (!game) {
@@ -193,6 +197,8 @@ export default function Page() {
   // ── Handlers ──────────────────────────────────────────────────────────────────
   function toggleCardSelection(cardId: string) {
     if (game?.phase === "drawPhase") return;
+    if (game?.phase === "actionPhase" && game.actionsRemaining === 0 && !needsDiscard) return;
+    
     const card = viewPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
 
@@ -243,6 +249,7 @@ export default function Page() {
     const idx = game.players.findIndex(p => p.id === currentPlayer.id);
     const next = game.players[(idx + 1) % game.players.length];
     doEndTurn(() => {
+      setOrganizingForForcedDeal(null);
       showHandoff(next.name, "It's your turn!", () => {
         setViewingPlayerId(next.id);
         clearSelection();
@@ -349,9 +356,16 @@ export default function Page() {
     targetCardId: string, offeredSetId: string, offeredCardId: string
   ) {
     const actingPlayerId = viewPlayer.id;
+    const actingPlayerName = viewPlayer.name;
+    const targetName = game?.players.find(p => p.id === targetPlayerId)?.name ?? "";
+
     doPlayForcedDeal(viewPlayer.id, cardId, targetPlayerId, targetSetId, targetCardId, offeredSetId, offeredCardId, () => {
       clearSelection();
-      setViewingPlayerId(actingPlayerId);
+      showHandoff(targetName, `${actingPlayerName} forced a deal — organize your properties.`, () => {
+        setViewingPlayerId(targetPlayerId);
+        setOrganizingForForcedDeal({ actingPlayerId, actingPlayerName });
+        setHandoff(null);
+      });
     });
   }
 
@@ -514,6 +528,36 @@ export default function Page() {
             </button>
           ))}
         </div>
+
+        {/* Done organizing banner — shown to forced deal victim */}
+        {organizingForForcedDeal && viewPlayer.id !== organizingForForcedDeal.actingPlayerId && (
+          <div style={{
+            background: "#1e1b4b", border: "1px solid #4c1d95",
+            borderRadius: 10, padding: "10px 14px", marginBottom: 10,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <span style={{ color: "#c4b5fd", fontSize: 12 }}>
+              Organize your properties, then pass back to {organizingForForcedDeal.actingPlayerName}
+            </span>
+            <button
+              onClick={() => {
+                const { actingPlayerId, actingPlayerName } = organizingForForcedDeal;
+                showHandoff(actingPlayerName, "Continue your turn.", () => {
+                  setViewingPlayerId(actingPlayerId);
+                  setOrganizingForForcedDeal(null);
+                  setHandoff(null);
+                });
+              }}
+              style={{
+                background: "#7c3aed", border: "none", borderRadius: 8,
+                padding: "6px 14px", color: "white",
+                fontSize: 12, fontWeight: 600, cursor: "pointer", minHeight: 36,
+              }}
+            >
+              Done →
+            </button>
+          </div>
+        )}
 
         {/* Opponent strips */}
         {game.players.filter(p => p.id !== viewPlayer.id).map(p => (

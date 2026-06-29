@@ -221,7 +221,7 @@ export function MyBoard({
         </div>
 
         {/* Bank action buttons */}
-        {isMyTurn && game.phase === "actionPhase" && (
+        {isMyTurn && game.phase === "actionPhase" && game.actionsRemaining > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {allMoney && (
               <ActionBtn color="#16a34a" onClick={onBankCards}>
@@ -291,6 +291,7 @@ export function MyBoard({
                 !complete &&
                 isMyTurn &&
                 game.phase === "actionPhase" &&
+                game.actionsRemaining > 0 &&
                 (
                   (singleProperty && (
                     selectedPropertyColor === set.color ||
@@ -305,6 +306,7 @@ export function MyBoard({
               const isRentTarget =
                 isMyTurn &&
                 game.phase === "actionPhase" &&
+                game.actionsRemaining > 0 &&
                 (
                   (singleRent && rentableSets.some(s => s.id === set.id)) ||
                   singleWildRent
@@ -328,12 +330,12 @@ export function MyBoard({
                 })();
 
               const isHouseTarget =
-                isMyTurn && game.phase === "actionPhase" && singleHouse &&
+                isMyTurn && game.phase === "actionPhase" && game.actionsRemaining > 0 && singleHouse &&
                 complete && !set.hasHouse &&
                 set.color !== "railroad" && set.color !== "utility";
 
               const isHotelTarget =
-                isMyTurn && game.phase === "actionPhase" && singleHotel &&
+                isMyTurn && game.phase === "actionPhase" && game.actionsRemaining > 0 && singleHotel &&
                 complete && set.hasHouse && !set.hasHotel &&
                 set.color !== "railroad" && set.color !== "utility";
 
@@ -436,7 +438,7 @@ export function MyBoard({
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                     {set.properties.map(prop => {
                       const isSelectedBoard = selectedBoardCardId === prop.id;
-                      const canSelect = isMyTurn && !complete && game.phase === "actionPhase";
+                      const canSelect = isMyTurn && !complete && (game.phase === "actionPhase" || game.phase === "discardPhase");;
                       return (
                         <div
                           key={prop.id}
@@ -589,7 +591,7 @@ export function MyBoard({
         )}
 
         {/* New set option for wild card on board */}
-        {isMyTurn && game.phase === "actionPhase" &&
+        {isMyTurn && (game.phase === "actionPhase" || game.phase === "discardPhase") &&
           selectedBoardCardId !== null && selectedBoardSetId !== null && (() => {
             const movingCard = player.propertySets
               .flatMap(s => s.properties)

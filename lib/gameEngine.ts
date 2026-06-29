@@ -761,6 +761,7 @@ export function movePropertyBetweenSets(
 
   toSet.properties.push(card);
   addLog(game, `${player.name} moved ${card.name} between ${PROPERTY_RULES[toSet.color].displayName} sets.`);
+  checkWinCondition(game);
 }
 
 export function playWildRent(
@@ -849,4 +850,5 @@ export function moveWildToNewColor(
   });
 
   addLog(game, `${player.name} moved ${card.name} to a new ${PROPERTY_RULES[newColor].displayName} set.`);
+  checkWinCondition(game);
 }
