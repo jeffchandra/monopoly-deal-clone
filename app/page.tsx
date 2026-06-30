@@ -117,6 +117,19 @@ export default function Page() {
           >
             Deal Cards
           </button>
+
+          <button
+            onClick={() => window.location.href = "/multiplayer"}
+            style={{
+              width: "100%", minHeight: 48,
+              background: "#1d4ed8", border: "none", borderRadius: 10,
+              color: "white", fontSize: 15, fontWeight: 700,
+              cursor: "pointer", marginTop: 8,
+              touchAction: "manipulation",
+            }}
+          >
+            🌐 Multiplayer
+          </button>
         </div>
       </div>
     );

@@ -228,16 +228,12 @@ export function MyBoard({
                 💰 Bank {selectedCardIds.length > 1 ? `${selectedCardIds.length} Cards` : "Card"}
               </ActionBtn>
             )}
-            {singleNonPropertyNonMoney && !singleDoubleRent && !singlePassGo && !singleBirthday && !singleDebtCollector && (
+            {singleNonPropertyNonMoney && (
               <ActionBtn color="#16a34a" onClick={onBankCards}>💰 Bank Card</ActionBtn>
-            )}
-            {singleDoubleRent && (
-              <ActionBtn color="#16a34a" onClick={onBankCards}>💰 Bank $2M</ActionBtn>
             )}
             {singleBirthday && (
               <>
                 <ActionBtn color="#db2777" onClick={onPlayBirthday}>🎂 Everyone pays $2M</ActionBtn>
-                <ActionBtn color="#16a34a" onClick={onBankCards}>💰 Bank Card</ActionBtn>
               </>
             )}
           </div>
@@ -315,7 +311,6 @@ export function MyBoard({
               const isSelectedRentSet = set.id === rentSetId;
 
               const isMoveTarget =
-                isMyTurn &&
                 selectedBoardCardId !== null &&
                 selectedBoardSetId !== null &&
                 set.id !== selectedBoardSetId &&
@@ -438,7 +433,7 @@ export function MyBoard({
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                     {set.properties.map(prop => {
                       const isSelectedBoard = selectedBoardCardId === prop.id;
-                      const canSelect = isMyTurn && !complete && (game.phase === "actionPhase" || game.phase === "discardPhase");;
+                      const canSelect = !complete && (game.phase === "actionPhase" || game.phase === "discardPhase" || game.phase === "drawPhase" || game.phase === "pendingAction");
                       return (
                         <div
                           key={prop.id}
@@ -591,7 +586,7 @@ export function MyBoard({
         )}
 
         {/* New set option for wild card on board */}
-        {isMyTurn && (game.phase === "actionPhase" || game.phase === "discardPhase") &&
+        {(game.phase === "actionPhase" || game.phase === "discardPhase") &&
           selectedBoardCardId !== null && selectedBoardSetId !== null && (() => {
             const movingCard = player.propertySets
               .flatMap(s => s.properties)
