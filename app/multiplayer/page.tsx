@@ -138,7 +138,7 @@ export default function MultiplayerPage() {
             onClick={() => {
               const code = generatedCode;
               setRoomCode(code);
-              mp.connect(code, playerName.trim());
+              mp.connect(code, playerName.trim(), true);
               setScreen("lobby");
             }}
           >
@@ -179,7 +179,7 @@ export default function MultiplayerPage() {
             disabled={!playerName.trim() || roomCodeInput.length !== 4}
             onClick={() => {
               setRoomCode(roomCodeInput);
-              mp.connect(roomCodeInput, playerName.trim());
+              mp.connect(roomCodeInput, playerName.trim(), false);
               setScreen("lobby");
             }}
           >

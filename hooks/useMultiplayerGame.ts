@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import PartySocket from "partysocket";
+import { io, Socket } from "socket.io-client";
 import { Game } from "../types/game";
 import { PropertyColor } from "../types/card";
-import type { ServerMessage, ClientMessage } from "../party/index";
 
-const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001";
 
 export type LobbyState = {
   playerNames: string[];
@@ -18,81 +17,74 @@ export function useMultiplayerGame() {
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
-  const socketRef = useRef<PartySocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const roomCodeRef = useRef<string>("");
+  const playerIdRef = useRef<string>("");
 
-  function connect(roomCode: string, playerName: string) {
-    console.log("Connecting to:", PARTYKIT_HOST, "room:", roomCode);
-    if (socketRef.current) {
-      socketRef.current.close();
-    }
-
-    const socket = new PartySocket({
-      host: PARTYKIT_HOST,
-      room: roomCode.toLowerCase(),
-    });
-
+  function connect(roomCode: string, playerName: string, isHost: boolean) {
+    const socket = io(SERVER_URL, { transports: ["websocket"] });
     socketRef.current = socket;
+    roomCodeRef.current = roomCode.toLowerCase();
 
-    socket.addEventListener("open", () => {
+    socket.on("connect", () => {
       setConnected(true);
-      send({ type: "join", playerName });
+      if (isHost) {
+        socket.emit("createRoom", { roomCode, playerName });
+      } else {
+        socket.emit("joinRoom", { roomCode, playerName });
+      }
     });
 
-    socket.addEventListener("message", (event) => {
-      const msg = JSON.parse(event.data) as ServerMessage;
-      handleServerMessage(msg);
+    socket.on("waiting", (data: LobbyState) => {
+      setLobby(data);
     });
 
-    socket.addEventListener("close", () => {
+    socket.on("gameState", (data: { game: Game; yourPlayerId: string }) => {
+      const sortedGame = data.game;
+      for (const p of sortedGame.players) {
+        p.bank = [...p.bank].sort((a, b) => b.value - a.value);
+      }
+      setGame(sortedGame);
+      setMyPlayerId(data.yourPlayerId);
+      playerIdRef.current = data.yourPlayerId;
+      setLobby(null);
+    });
+
+    socket.on("error", (data: { message: string }) => {
+      setError(data.message);
+    });
+
+    socket.on("playerDisconnected", (data: { playerName: string }) => {
+      setError(`${data.playerName} disconnected. Game over.`);
+    });
+
+    socket.on("disconnect", () => {
       setConnected(false);
-      setError("Disconnected from server.");
     });
-
-    socket.addEventListener("error", () => {
-      setError("Connection error.");
-    });
-  }
-
-  function handleServerMessage(msg: ServerMessage) {
-    switch (msg.type) {
-      case "waiting":
-        setLobby({ playerNames: msg.playerNames, roomCode: msg.roomCode });
-        break;
-      case "gameState":
-        const sortedGame = msg.game;
-        for (const p of sortedGame.players) {
-            p.bank = [...p.bank].sort((a, b) => b.value - a.value);
-        }
-        setGame(sortedGame);
-        setMyPlayerId(msg.yourPlayerId);
-        setLobby(null);
-        break;
-      case "error":
-        setError(msg.message);
-        break;
-      case "gameOver":
-        // game state already updated via gameState message
-        break;
-    }
-  }
-
-  function send(msg: ClientMessage) {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify(msg));
-    }
   }
 
   function disconnect() {
-    socketRef.current?.close();
+    socketRef.current?.disconnect();
     socketRef.current = null;
     setGame(null);
     setMyPlayerId(null);
     setLobby(null);
     setConnected(false);
+    setError(null);
   }
 
-  // ── Game actions ────────────────────────────────────────────────────────────
-  const doStartGame = useCallback(() => send({ type: "startGame" }), []);
+  function send(action: any) {
+    socketRef.current?.emit("gameAction", {
+      roomCode: roomCodeRef.current,
+      playerId: playerIdRef.current,
+      action,
+    });
+  }
+
+  const doStartGame = useCallback(() => {
+    socketRef.current?.emit("startGame", { roomCode: roomCodeRef.current });
+  }, []);
+
   const doStartTurn = useCallback(() => send({ type: "startTurn" }), []);
   const doEndTurn = useCallback(() => send({ type: "endTurn" }), []);
   const doDiscard = useCallback((cardId: string) => send({ type: "discard", cardId }), []);
@@ -129,33 +121,14 @@ export function useMultiplayerGame() {
     send({ type: "moveWildToNewColor", cardId, fromSetId, newColor }), []);
 
   return {
-    game,
-    myPlayerId,
-    lobby,
-    error,
-    connected,
+    game, myPlayerId, lobby, error, connected,
     clearError: () => setError(null),
-    connect,
-    disconnect,
-    doStartGame,
-    doStartTurn,
-    doEndTurn,
-    doDiscard,
-    doBankCards,
-    doPlacePropertyAsNewSet,
-    doPlacePropertyIntoSet,
-    doPlayRentCard,
-    doPlayWildRent,
-    doConfirmPayment,
-    doPlacePendingProperty,
-    doPlayPassGo,
-    doPlayItsMyBirthday,
-    doPlayDebtCollector,
-    doPlaySlyDeal,
-    doPlayForcedDeal,
-    doPlayHouse,
-    doPlayHotel,
-    doMovePropertyBetweenSets,
-    doMoveWildToNewColor,
+    connect, disconnect,
+    doStartGame, doStartTurn, doEndTurn, doDiscard, doBankCards,
+    doPlacePropertyAsNewSet, doPlacePropertyIntoSet,
+    doPlayRentCard, doPlayWildRent, doConfirmPayment, doPlacePendingProperty,
+    doPlayPassGo, doPlayItsMyBirthday, doPlayDebtCollector,
+    doPlaySlyDeal, doPlayForcedDeal, doPlayHouse, doPlayHotel,
+    doMovePropertyBetweenSets, doMoveWildToNewColor,
   };
 }
