@@ -165,9 +165,9 @@ export function createDeck(): Card[] {
   }
 
   // Just Say No x3
-  // for (let i = 0; i < 3; i++) {
-  //   cards.push(act("Just Say No", 4, "justSayNo"));
-  // }
+  for (let i = 0; i < 3; i++) {
+    cards.push(act("Just Say No", 4, "justSayNo"));
+  }
 
   return cards;
 }

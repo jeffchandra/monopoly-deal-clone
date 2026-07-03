@@ -38,36 +38,38 @@ export type PendingActionKind =
 
 export interface PendingPayment {
   kind: "payRent" | "payBirthday" | "payDebtCollector";
-  fromPlayerId: string;   // who owes
-  toPlayerId: string;     // who receives
+  fromPlayerId: string;
+  toPlayerId: string;
   amountOwed: number;
-  /** Cards the payer has selected so far to fulfil the debt */
   selectedCardIds: string[];
-  /** Whether the payer has played a Just Say No */
   blocked: boolean;
+  // JSN tracking
+  jsnCount: number;
+  lastJsnPlayerId: string | null;
 }
 
 export interface PendingSlyDeal {
   kind: "slyDeal";
-  fromPlayerId: string;  // thief
-  toPlayerId: string;    // victim
-  /** Set + property the thief wants to take (chosen at play time) */
+  fromPlayerId: string;
+  toPlayerId: string;
   targetSetId: string;
   targetCardId: string;
   blocked: boolean;
+  jsnCount: number;
+  lastJsnPlayerId: string | null;
 }
 
 export interface PendingForcedDeal {
   kind: "forcedDeal";
   fromPlayerId: string;
   toPlayerId: string;
-  /** Property the thief is offering */
-  offeredSetId: string;
-  offeredCardId: string;
-  /** Property the thief wants */
   targetSetId: string;
   targetCardId: string;
+  offeredSetId: string;
+  offeredCardId: string;
   blocked: boolean;
+  jsnCount: number;
+  lastJsnPlayerId: string | null;
 }
 
 export interface PendingDealBreaker {
@@ -76,6 +78,8 @@ export interface PendingDealBreaker {
   toPlayerId: string;
   targetSetId: string;
   blocked: boolean;
+  jsnCount: number;
+  lastJsnPlayerId: string | null;
 }
 
 export type PendingAction =

@@ -1,4 +1,4 @@
-import { Game, Player, PendingPayment } from "../types/game";
+import { Game, Player, PendingPayment, PendingSlyDeal, PendingForcedDeal } from "../types/game";
 import { Card, RentCard, PropertyCard, PropertyColor } from "../types/card";
 import { createDeck, shuffleDeck } from "./deck";
 import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCard, getIncompleteSetForColor } from "./propertyUtils";
@@ -253,6 +253,17 @@ export function confirmPayment(
 
   const pending = game.pendingActions[0];
   if (!pending) throw new Error("No pending action");
+
+  // If odd number of JSNs, action is blocked — skip payment
+  if ((pending.jsnCount ?? 0) % 2 === 1) {
+    game.pendingActions.shift();
+    if (game.pendingActions.length === 0) {
+      game.phase = "actionPhase";
+    }
+    addLog(game, "Action was blocked by Just Say No!");
+    return;
+  }
+  
   if (
     pending.kind !== "payRent" &&
     pending.kind !== "payBirthday" &&
@@ -404,6 +415,8 @@ export function playRentCard(
       amountOwed: amount,
       selectedCardIds: [],
       blocked: false,
+      jsnCount: 0,
+      lastJsnPlayerId: playerId,
     });
   }
 
@@ -508,6 +521,8 @@ export function playItsMyBirthday(
       amountOwed: 2,
       selectedCardIds: [],
       blocked: false,
+      jsnCount: 0,
+      lastJsnPlayerId: playerId,
     });
   }
 
@@ -541,6 +556,8 @@ export function playDebtCollector(
     amountOwed: 5,
     selectedCardIds: [],
     blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: playerId,
   });
 
   game.phase = "pendingAction";
@@ -559,39 +576,32 @@ export function playSlyDeal(
   if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
 
   const player = getPlayerById(game, playerId);
-  const target = getPlayerById(game, targetPlayerId);
-
   const cardIdx = player.hand.findIndex(c => c.id === cardId);
   if (cardIdx === -1) throw new Error("Card not found in hand");
 
+  const target = getPlayerById(game, targetPlayerId);
   const targetSet = target.propertySets.find(s => s.id === targetSetId);
   if (!targetSet) throw new Error("Target set not found");
   if (isSetComplete(targetSet)) throw new Error("Cannot steal from a complete set");
+  if (!targetSet.properties.find(c => c.id === targetCardId)) throw new Error("Target card not found");
 
-  const stolenCardIdx = targetSet.properties.findIndex(c => c.id === targetCardId);
-  if (stolenCardIdx === -1) throw new Error("Target card not found in set");
-
-  // Remove card from hand and discard
   const card = player.hand.splice(cardIdx, 1)[0];
   game.discardPile.push(card);
   game.actionsRemaining--;
 
-  // Remove stolen card from target's set
-  const stolenCard = targetSet.properties.splice(stolenCardIdx, 1)[0];
-  if (targetSet.properties.length === 0) {
-    target.propertySets = target.propertySets.filter(s => s.id !== targetSetId);
-  }
-
-  player.propertySets.push({
-    id: generateId(),
-    color: stolenCard.activeColor,
-    properties: [stolenCard],
-    hasHouse: false,
-    hasHotel: false,
+  game.pendingActions.push({
+    kind: "slyDeal",
+    fromPlayerId: playerId,
+    toPlayerId: targetPlayerId,
+    targetSetId,
+    targetCardId,
+    blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: playerId, // attacker cannot play first JSN
   });
 
-  addLog(game, `${player.name} sly dealt ${stolenCard.name} from ${target.name}.`);
-  checkWinCondition(game);
+  game.phase = "pendingAction";
+  addLog(game, `${player.name} played Sly Deal targeting ${target.name}.`);
 }
 
 export function playForcedDeal(
@@ -608,60 +618,35 @@ export function playForcedDeal(
   if (game.actionsRemaining <= 0) throw new Error("No actions remaining");
 
   const player = getPlayerById(game, playerId);
-  const target = getPlayerById(game, targetPlayerId);
-
   const cardIdx = player.hand.findIndex(c => c.id === cardId);
   if (cardIdx === -1) throw new Error("Card not found in hand");
 
-  // Validate target set
+  const target = getPlayerById(game, targetPlayerId);
   const targetSet = target.propertySets.find(s => s.id === targetSetId);
-  if (!targetSet) throw new Error("Target set not found");
-  if (isSetComplete(targetSet)) throw new Error("Cannot steal from a complete set");
-
-  const targetCardIdx = targetSet.properties.findIndex(c => c.id === targetCardId);
-  if (targetCardIdx === -1) throw new Error("Target card not found in set");
-
-  // Validate offered set
   const offeredSet = player.propertySets.find(s => s.id === offeredSetId);
-  if (!offeredSet) throw new Error("Offered set not found");
-  if (isSetComplete(offeredSet)) throw new Error("Cannot give away a card from a complete set");
+  if (!targetSet || !offeredSet) throw new Error("Set not found");
+  if (isSetComplete(targetSet)) throw new Error("Cannot steal from a complete set");
+  if (isSetComplete(offeredSet)) throw new Error("Cannot give away from a complete set");
 
-  const offeredCardIdx = offeredSet.properties.findIndex(c => c.id === offeredCardId);
-  if (offeredCardIdx === -1) throw new Error("Offered card not found in set");
-
-  // Remove card from hand and discard
   const card = player.hand.splice(cardIdx, 1)[0];
   game.discardPile.push(card);
   game.actionsRemaining--;
 
-  // Swap the cards
-  const takenCard = targetSet.properties.splice(targetCardIdx, 1)[0];
-  if (targetSet.properties.length === 0) {
-    target.propertySets = target.propertySets.filter(s => s.id !== targetSetId);
-  }
-
-  const givenCard = offeredSet.properties.splice(offeredCardIdx, 1)[0];
-  if (offeredSet.properties.length === 0) {
-    player.propertySets = player.propertySets.filter(s => s.id !== offeredSetId);
-  }
-
-  player.propertySets.push({
-    id: generateId(),
-    color: takenCard.activeColor,
-    properties: [takenCard],
-    hasHouse: false,
-    hasHotel: false,
-  });
-  target.propertySets.push({
-    id: generateId(),
-    color: givenCard.activeColor,
-    properties: [givenCard],
-    hasHouse: false,
-    hasHotel: false,
+  game.pendingActions.push({
+    kind: "forcedDeal",
+    fromPlayerId: playerId,
+    toPlayerId: targetPlayerId,
+    targetSetId,
+    targetCardId,
+    offeredSetId,
+    offeredCardId,
+    blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: playerId,
   });
 
-  addLog(game, `${player.name} forced a deal — swapped ${givenCard.name} for ${takenCard.name} from ${target.name}.`);
-  checkWinCondition(game);
+  game.phase = "pendingAction";
+  addLog(game, `${player.name} played Forced Deal targeting ${target.name}.`);
 }
 
 export function playHouse(
@@ -809,6 +794,8 @@ export function playWildRent(
     amountOwed: amount,
     selectedCardIds: [],
     blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: null,
   });
 
   game.phase = "pendingAction";
@@ -851,4 +838,107 @@ export function moveWildToNewColor(
 
   addLog(game, `${player.name} moved ${card.name} to a new ${PROPERTY_RULES[newColor].displayName} set.`);
   checkWinCondition(game);
+}
+
+export function playJustSayNo(
+  game: Game,
+  playerId: string,
+  cardId: string
+): void {
+  const pending = game.pendingActions[0];
+  if (!pending) throw new Error("No pending action");
+
+  // Cannot play JSN if you were the last one to play JSN
+  if (pending.lastJsnPlayerId === playerId) {
+    throw new Error("You just played Just Say No — wait for someone else to respond");
+  }
+
+  // Find and remove JSN card from hand
+  const player = getPlayerById(game, playerId);
+  const cardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (cardIdx === -1) throw new Error("Card not found in hand");
+
+  const card = player.hand[cardIdx];
+  if (card.type !== "action" || (card as any).action !== "justSayNo") {
+    throw new Error("Card is not a Just Say No");
+  }
+
+  player.hand.splice(cardIdx, 1);
+  game.discardPile.push(card);
+
+  // Update JSN state
+  pending.jsnCount = (pending.jsnCount ?? 0) + 1;
+  pending.lastJsnPlayerId = playerId;
+
+  addLog(game, `${player.name} played Just Say No! (${pending.jsnCount} total)`);
+}
+
+export function resolveJsn(game: Game): void {
+  const pending = game.pendingActions[0];
+  if (!pending) throw new Error("No pending action");
+
+  const blocked = (pending.jsnCount ?? 0) % 2 === 1;
+
+  if (blocked) {
+    // Action cancelled
+    game.pendingActions.shift();
+    if (game.pendingActions.length === 0) {
+      game.phase = "actionPhase";
+    }
+    addLog(game, "Action was blocked by Just Say No!");
+    return;
+  }
+
+  // Action goes through — execute it
+  if (pending.kind === "slyDeal") {
+    const attacker = getPlayerById(game, pending.fromPlayerId);
+    const victim = getPlayerById(game, pending.toPlayerId);
+    const targetSet = victim.propertySets.find(s => s.id === pending.targetSetId);
+    if (!targetSet) throw new Error("Target set not found");
+    const cardIdx = targetSet.properties.findIndex(c => c.id === pending.targetCardId);
+    if (cardIdx === -1) throw new Error("Target card not found");
+    const stolenCard = targetSet.properties.splice(cardIdx, 1)[0];
+    if (targetSet.properties.length === 0) {
+      victim.propertySets = victim.propertySets.filter(s => s.id !== pending.targetSetId);
+    }
+    attacker.propertySets.push({
+      id: generateId(),
+      color: stolenCard.activeColor,
+      properties: [stolenCard],
+      hasHouse: false,
+      hasHotel: false,
+    });
+    addLog(game, `${attacker.name} stole ${stolenCard.name} from ${victim.name}.`);
+    checkWinCondition(game);
+  }
+
+  if (pending.kind === "forcedDeal") {
+    const attacker = getPlayerById(game, pending.fromPlayerId);
+    const victim = getPlayerById(game, pending.toPlayerId);
+
+    const targetSet = victim.propertySets.find(s => s.id === pending.targetSetId);
+    const offeredSet = attacker.propertySets.find(s => s.id === pending.offeredSetId);
+    if (!targetSet || !offeredSet) throw new Error("Set not found");
+
+    const targetCardIdx = targetSet.properties.findIndex(c => c.id === pending.targetCardId);
+    const offeredCardIdx = offeredSet.properties.findIndex(c => c.id === pending.offeredCardId);
+    if (targetCardIdx === -1 || offeredCardIdx === -1) throw new Error("Card not found");
+
+    const takenCard = targetSet.properties.splice(targetCardIdx, 1)[0];
+    const givenCard = offeredSet.properties.splice(offeredCardIdx, 1)[0];
+
+    if (targetSet.properties.length === 0) victim.propertySets = victim.propertySets.filter(s => s.id !== pending.targetSetId);
+    if (offeredSet.properties.length === 0) attacker.propertySets = attacker.propertySets.filter(s => s.id !== pending.offeredSetId);
+
+    attacker.propertySets.push({ id: generateId(), color: takenCard.activeColor, properties: [takenCard], hasHouse: false, hasHotel: false });
+    victim.propertySets.push({ id: generateId(), color: givenCard.activeColor, properties: [givenCard], hasHouse: false, hasHotel: false });
+
+    addLog(game, `${attacker.name} forced a deal with ${victim.name}.`);
+    checkWinCondition(game);
+  }
+
+  game.pendingActions.shift();
+  if (game.pendingActions.length === 0) {
+    game.phase = "actionPhase";
+  }
 }
