@@ -11,10 +11,13 @@ interface PaymentModalProps {
   onToggleCard: (cardId: string) => void;
   onConfirm: () => void;
   onSwitchToPlayer: (playerId: string) => void;
+  myJsnCard?: { id: string } | null;
+  onPlayJustSayNo?: (cardId: string) => void;
+  jsnCount?: number;
 }
 
 export function PaymentModal({
-  game, pending, viewingPlayerId, paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer,
+  game, pending, viewingPlayerId, paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer, myJsnCard, onPlayJustSayNo, jsnCount
 }: PaymentModalProps) {
   const isMyPayment = pending.fromPlayerId === viewingPlayerId;
   const payer = game.players.find(p => p.id === pending.fromPlayerId)!;
@@ -175,6 +178,24 @@ export function PaymentModal({
             </span>
             <span style={{ color: "#4b5563" }}> / ${maxNeeded}M needed</span>
           </div>
+          {/* JSN button */}
+          {myJsnCard && onPlayJustSayNo && (
+            <button
+              onClick={() => onPlayJustSayNo(myJsnCard.id)}
+              style={{
+                background: "#7c3aed", border: "none", borderRadius: 8,
+                padding: "10px 20px", color: "white",
+                fontSize: 14, fontWeight: 700, cursor: "pointer", minHeight: 44,
+              }}
+            >
+              Just Say No! 🚫
+            </button>
+          )}
+          {jsnCount !== undefined && jsnCount > 0 && (
+            <div style={{ color: "#c4b5fd", fontSize: 11 }}>
+              {jsnCount} JSN played — {jsnCount % 2 === 1 ? "payment blocked" : "payment going through"}
+            </div>
+          )}
           <button
             onClick={onConfirm}
             disabled={!canConfirm}

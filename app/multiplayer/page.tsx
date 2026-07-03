@@ -352,6 +352,32 @@ export default function MultiplayerPage() {
       ? game.pendingActions[0]
       : null;
 
+  const pendingSlyDeal =
+    game.phase === "pendingAction" &&
+    game.pendingActions.length > 0 &&
+    game.pendingActions[0].kind === "slyDeal"
+      ? game.pendingActions[0]
+      : null;
+
+  const pendingForcedDeal =
+    game.phase === "pendingAction" &&
+    game.pendingActions.length > 0 &&
+    game.pendingActions[0].kind === "forcedDeal"
+      ? game.pendingActions[0]
+      : null;
+
+  const pendingSteal = pendingSlyDeal ?? pendingForcedDeal ?? null;
+
+    // Does this player have a JSN card
+  const myJsnCard = game.players
+    .find(p => p.id === myPlayerId)?.hand
+    .find(c => c.type === "action" && (c as ActionCard).action === "justSayNo") ?? null;
+
+    // Can I play JSN right now
+  const canPlayJsn = pendingSteal !== null &&
+    pendingSteal.lastJsnPlayerId !== myPlayerId &&
+    myJsnCard !== null;
+
   const isMyPayment = pendingPayment?.fromPlayerId === myPlayerId;
 
   function clearSelection() {
@@ -448,7 +474,88 @@ export default function MultiplayerPage() {
               setPaymentCardIds([]);
             }}
             onSwitchToPlayer={() => {}}
+            myJsnCard={myJsnCard}
+            onPlayJustSayNo={cardId => mp.doPlayJustSayNo(cardId)}
+            jsnCount={pendingPayment.jsnCount}
           />
+        )}
+
+        {/* JSN response modal for sly/forced deal */}
+        {pendingSteal && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 50, padding: 16,
+          }}>
+            <div style={{
+              background: "#0a170a", border: "1px solid #1f3d1f",
+              borderRadius: 16, padding: 20, width: "100%", maxWidth: 400,
+            }}>
+              <div style={{ color: "white", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                {pendingSteal.kind === "slyDeal" ? "🃏 Sly Deal!" : "🔄 Forced Deal!"}
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16 }}>
+                <span style={{ color: "#f87171", fontWeight: 600 }}>
+                  {game.players.find(p => p.id === pendingSteal.fromPlayerId)?.name}
+                </span>
+                {pendingSteal.kind === "slyDeal"
+                  ? " is stealing a property from "
+                  : " is forcing a deal with "}
+                <span style={{ color: "#60a5fa", fontWeight: 600 }}>
+                  {game.players.find(p => p.id === pendingSteal.toPlayerId)?.name}
+                </span>
+                .
+              </div>
+
+              {/* JSN count indicator */}
+              {pendingSteal.jsnCount > 0 && (
+                <div style={{
+                  background: "#1e1b4b", border: "1px solid #4c1d95",
+                  borderRadius: 8, padding: "6px 12px", marginBottom: 12,
+                  color: "#c4b5fd", fontSize: 12,
+                }}>
+                  {pendingSteal.jsnCount} Just Say No{pendingSteal.jsnCount > 1 ? "s" : ""} played —
+                  action is currently {pendingSteal.jsnCount % 2 === 1 ? "BLOCKED" : "GOING THROUGH"}
+                </div>
+              )}
+
+              {canPlayJsn && (
+                <button
+                  onClick={() => {
+                    mp.doPlayJustSayNo(myJsnCard!.id);
+                  }}
+                  style={{
+                    width: "100%", minHeight: 48,
+                    background: "#7c3aed", border: "none", borderRadius: 10,
+                    color: "white", fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", marginBottom: 10,
+                  }}
+                >
+                  Just Say No! 🚫
+                </button>
+              )}
+
+              {/* Only the victim or attacker can resolve — others just wait */}
+              {(myPlayerId === pendingSteal.toPlayerId ||
+                (myPlayerId === pendingSteal.fromPlayerId && pendingSteal.jsnCount % 2 === 1)) ? (
+                <button
+                  onClick={() => mp.doResolveJsn()}
+                  style={{
+                    width: "100%", minHeight: 48,
+                    background: "#374151", border: "none", borderRadius: 10,
+                    color: "white", fontSize: 14, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {pendingSteal.jsnCount % 2 === 0 ? "Accept" : "Resolve (Blocked)"}
+                </button>
+              ) : (
+                <div style={{ color: "#6b7280", fontSize: 13, textAlign: "center", padding: "8px 0" }}>
+                  Waiting for {game.players.find(p => p.id === pendingSteal.toPlayerId)?.name} to respond...
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Waiting for payment from another player */}

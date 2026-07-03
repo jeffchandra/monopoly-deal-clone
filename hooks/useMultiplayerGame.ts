@@ -149,6 +149,10 @@ export function useMultiplayerGame() {
     send({ type: "movePropertyBetweenSets", cardId, fromSetId, toSetId }), []);
   const doMoveWildToNewColor = useCallback((cardId: string, fromSetId: string, newColor: PropertyColor) =>
     send({ type: "moveWildToNewColor", cardId, fromSetId, newColor }), []);
+  const doPlayJustSayNo = useCallback((cardId: string) =>
+    send({ type: "playJustSayNo", cardId }), []);
+  const doResolveJsn = useCallback(() =>
+    send({ type: "resolveJsn" }), []);
 
   return {
     game, myPlayerId, lobby, error, connected,
@@ -160,5 +164,6 @@ export function useMultiplayerGame() {
     doPlayPassGo, doPlayItsMyBirthday, doPlayDebtCollector,
     doPlaySlyDeal, doPlayForcedDeal, doPlayHouse, doPlayHotel,
     doMovePropertyBetweenSets, doMoveWildToNewColor, rejoin,
+    doPlayJustSayNo, doResolveJsn,
   };
 }
