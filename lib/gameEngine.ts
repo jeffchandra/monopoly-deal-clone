@@ -101,13 +101,13 @@ export function startTurn(game: Game): void {
 }
 
 export function checkWinCondition(game: Game): boolean {
-  const current = getCurrentPlayer(game);
-  const completedSets = getCompletedSetCount(current);
-  if (completedSets >= game.config.winCondition) {
-    game.winnerId = current.id;
-    game.phase = "gameOver";
-    addLog(game, `🏆 ${current.name} wins!`);
-    return true;
+  for (const player of game.players) {
+    if (getCompletedSetCount(player) >= game.config.winCondition) {
+      game.winnerId = player.id;
+      game.phase = "gameOver";
+      addLog(game, `🏆 ${player.name} wins!`);
+      return true;
+    }
   }
   return false;
 }

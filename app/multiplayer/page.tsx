@@ -17,7 +17,7 @@ function generateRoomCode(): string {
 export default function MultiplayerPage() {
   const mp = useMultiplayerGame();
 
-  const [screen, setScreen] = useState<"home" | "create" | "join" | "lobby" | "game">("home");
+  const [screen, setScreen] = useState<"home" | "create" | "join" | "lobby" | "game" | "rejoin">("home");
   const [playerName, setPlayerName] = useState("");
   const [roomCodeInput, setRoomCodeInput] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -106,6 +106,9 @@ export default function MultiplayerPage() {
           <button style={btn("#1d4ed8")} onClick={() => setScreen("join")}>
             Join Room
           </button>
+          <button style={btn("#7c3aed")} onClick={() => setScreen("rejoin")}>
+            Rejoin Game
+          </button>
           <button
             style={{ ...btn("#374151"), marginTop: 4 }}
             onClick={() => window.location.href = "/"}
@@ -192,6 +195,46 @@ export default function MultiplayerPage() {
       </div>
     );
   }
+
+  if (screen === "rejoin") {
+    return (
+        <div style={s}>
+        <div style={card}>
+            <div style={title}>Rejoin Game</div>
+            <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 8 }}>Room code:</div>
+            <input
+            style={{ ...input, textTransform: "uppercase", letterSpacing: 4, fontSize: 20, textAlign: "center" }}
+            value={roomCodeInput}
+            onChange={e => setRoomCodeInput(e.target.value.toUpperCase().slice(0, 4))}
+            placeholder="XXXX"
+            maxLength={4}
+            />
+            <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 8 }}>Your name:</div>
+            <input
+            style={input}
+            value={playerName}
+            onChange={e => setPlayerName(e.target.value)}
+            placeholder="Enter your name"
+            maxLength={20}
+            />
+            <button
+            style={btn("#7c3aed", !playerName.trim() || roomCodeInput.length !== 4)}
+            disabled={!playerName.trim() || roomCodeInput.length !== 4}
+            onClick={() => {
+                setRoomCode(roomCodeInput);
+                mp.rejoin(roomCodeInput, playerName.trim());
+                setScreen("game");
+            }}
+            >
+            Rejoin
+            </button>
+            <button style={btn("#374151")} onClick={() => setScreen("home")}>
+            ← Back
+            </button>
+        </div>
+        </div>
+    );
+    }
 
   // ── Lobby screen ─────────────────────────────────────────────────────────────
   if (screen === "lobby" || (mp.lobby && !mp.game)) {
@@ -370,6 +413,9 @@ export default function MultiplayerPage() {
 
     const card = viewPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
+
+    setSelectedBoardCardId(null);
+    setSelectedBoardSetId(null);
 
     if (needsDiscard) {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
@@ -634,6 +680,12 @@ export default function MultiplayerPage() {
             mp.doMoveWildToNewColor(cardId, fromSetId, color);
             setSelectedBoardCardId(null);
             setSelectedBoardSetId(null);
+          }}
+          onClearHandSelection={() => {
+            setSelectedCardIds([]);
+            setSelectedPendingId(null);
+            setRentSetId(null);
+            setDoubleRentCardId(null);
           }}
         />
 

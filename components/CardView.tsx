@@ -201,6 +201,7 @@ function RegularBody({ card, nameFontSize, valueFontSize, subFontSize }: {
 }
 
 function RentTiers({ card, fontSize }: { card: PropertyCard; fontSize: number }) {
+  if (card.colors.length > 2) return null;
   const rule = PROPERTY_RULES[card.activeColor];
   if (!rule) return null;
   return (

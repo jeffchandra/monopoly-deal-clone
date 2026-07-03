@@ -215,6 +215,9 @@ export default function Page() {
     const card = viewPlayer.hand.find(c => c.id === cardId);
     if (!card) return;
 
+    setSelectedBoardCardId(null);
+    setSelectedBoardSetId(null);
+
     if (needsDiscard) {
       setSelectedCardIds(prev => prev.includes(cardId) ? [] : [cardId]);
       setSelectedPendingId(null);
@@ -661,6 +664,12 @@ export default function Page() {
             doMoveWildToNewColor(viewPlayer.id, cardId, fromSetId, color);
             setSelectedBoardCardId(null);
             setSelectedBoardSetId(null);
+          }}
+          onClearHandSelection={() => {
+            setSelectedCardIds([]);
+            setSelectedPendingId(null);
+            setRentSetId(null);
+            setDoubleRentCardId(null);
           }}
         />
 

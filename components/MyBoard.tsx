@@ -3,6 +3,7 @@ import { Player, Game, PropertySet } from "../types/game";
 import { PropertyCard, ActionCard, PropertyColor } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
 import { isSetComplete, getRentForSet } from "../lib/propertyUtils";
+import { CardView } from "./CardView";
 
 interface MyBoardProps {
   player: Player;
@@ -52,6 +53,7 @@ interface MyBoardProps {
   onPlacePending: (cardId: string, targetSetId: string | null) => void;
   onSelectPending: (cardId: string) => void;
   onMoveWildToNewColor: (cardId: string, fromSetId: string, newColor: PropertyColor) => void;
+  onClearHandSelection: () => void;
   wildRentTargetPlayerId: string | null;
 }
 
@@ -100,6 +102,7 @@ export function MyBoard({
   onPlacePending,
   onSelectPending,
   onMoveWildToNewColor,
+  onClearHandSelection,
   wildRentTargetPlayerId,
 }: MyBoardProps) {
   const selectedCards = player.hand.filter(c => selectedCardIds.includes(c.id));
@@ -430,23 +433,33 @@ export function MyBoard({
                   </div>
 
                   {/* Individual property cards */}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 4 }}>
                     {set.properties.map(prop => {
                       const isSelectedBoard = selectedBoardCardId === prop.id;
-                      const canSelect = !complete && (game.phase === "actionPhase" || game.phase === "discardPhase" || game.phase === "drawPhase" || game.phase === "pendingAction");
+                      const canSelect =
+                        !complete &&
+                        (game.phase === "actionPhase" || game.phase === "discardPhase" ||
+                        game.phase === "drawPhase" || game.phase === "pendingAction");
+
                       return (
                         <div
                           key={prop.id}
-                          onClick={e => { e.stopPropagation(); if (canSelect) onSelectBoardCard(prop.id, set.id); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (canSelect) {
+                              onClearHandSelection();
+                              onSelectBoardCard(prop.id, set.id);
+                            }
+                          }}
                           style={{
-                            background: isSelectedBoard ? "#1e40af" : "#1a2e1a",
-                            border: `1px solid ${isSelectedBoard ? "#3b82f6" : "#2d4a2d"}`,
-                            borderRadius: 4, padding: "1px 5px",
-                            color: isSelectedBoard ? "white" : "#9ca3af",
-                            fontSize: 9, cursor: canSelect ? "pointer" : "default",
+                            outline: isSelectedBoard ? "2px solid #3b82f6" : "none",
+                            borderRadius: 8,
+                            cursor: canSelect ? "pointer" : "default",
+                            transform: isSelectedBoard ? "translateY(-4px)" : "none",
+                            transition: "transform 0.1s",
                           }}
                         >
-                          {prop.name}
+                          <CardView card={prop} size="sm" />
                         </div>
                       );
                     })}

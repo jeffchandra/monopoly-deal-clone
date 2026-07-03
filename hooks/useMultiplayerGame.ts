@@ -54,8 +54,8 @@ export function useMultiplayerGame() {
       setError(data.message);
     });
 
-    socket.on("playerDisconnected", (data: { playerName: string }) => {
-      setError(`${data.playerName} disconnected. Game over.`);
+    socket.on("playerDisconnected", (data: { playerName: string; reconnectable: boolean }) => {
+      setError(`${data.playerName} disconnected. Waiting for them to reconnect...`);
     });
 
     socket.on("disconnect", () => {
@@ -78,6 +78,36 @@ export function useMultiplayerGame() {
       roomCode: roomCodeRef.current,
       playerId: playerIdRef.current,
       action,
+    });
+  }
+
+  function rejoin(roomCode: string, playerName: string) {
+    const socket = io(SERVER_URL, { transports: ["websocket"] });
+    socketRef.current = socket;
+    roomCodeRef.current = roomCode.toLowerCase();
+
+    socket.on("connect", () => {
+      setConnected(true);
+      socket.emit("rejoinRoom", { roomCode, playerName });
+    });
+
+    socket.on("gameState", (data: { game: Game; yourPlayerId: string }) => {
+      const sortedGame = data.game;
+      for (const p of sortedGame.players) {
+        p.bank = [...p.bank].sort((a, b) => b.value - a.value);
+      }
+      setGame(sortedGame);
+      setMyPlayerId(data.yourPlayerId);
+      playerIdRef.current = data.yourPlayerId;
+      setLobby(null);
+    });
+
+    socket.on("error", (data: { message: string }) => {
+      setError(data.message);
+    });
+
+    socket.on("disconnect", () => {
+      setConnected(false);
     });
   }
 
@@ -129,6 +159,6 @@ export function useMultiplayerGame() {
     doPlayRentCard, doPlayWildRent, doConfirmPayment, doPlacePendingProperty,
     doPlayPassGo, doPlayItsMyBirthday, doPlayDebtCollector,
     doPlaySlyDeal, doPlayForcedDeal, doPlayHouse, doPlayHotel,
-    doMovePropertyBetweenSets, doMoveWildToNewColor,
+    doMovePropertyBetweenSets, doMoveWildToNewColor, rejoin,
   };
 }

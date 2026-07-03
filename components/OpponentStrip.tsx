@@ -4,6 +4,7 @@ import { Player, Game, PropertySet } from "../types/game";
 import { PropertyCard } from "../types/card";
 import { PROPERTY_RULES } from "../data/propertyRules";
 import { isSetComplete, getRentForSet } from "../lib/propertyUtils";
+import { CardView } from "./CardView";
 
 interface OpponentStripProps {
   player: Player;
@@ -202,15 +203,10 @@ export function OpponentStrip({
                           ${getRentForSet(set)}M
                         </span>
                       </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                      {/* Individual property cards */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 4 }}>
                         {set.properties.map(prop => (
-                          <div key={prop.id} style={{
-                            background: "#1a2e1a", border: "1px solid #2d4a2d",
-                            borderRadius: 3, padding: "1px 4px",
-                            color: "#9ca3af", fontSize: 8,
-                          }}>
-                            {prop.name}
-                          </div>
+                          <CardView key={prop.id} card={prop} size="sm" />
                         ))}
                       </div>
                     </div>
