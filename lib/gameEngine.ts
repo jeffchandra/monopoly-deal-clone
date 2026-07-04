@@ -398,12 +398,15 @@ export function playRentCard(
     multiplier = 2;
   }
 
+  const newCardIdx = player.hand.findIndex(c => c.id === cardId);
+  if (newCardIdx === -1) throw new Error("Rent card not found after removing double rent");
+
   const amount = getRentForSet(set) * multiplier;
   const opponents = targetPlayerId
     ? [getPlayerById(game, targetPlayerId)]
     : getOpponents(game, playerId);
 
-  player.hand.splice(cardIdx, 1);
+  player.hand.splice(newCardIdx, 1);
   game.discardPile.push(rentCard);
   game.actionsRemaining--;
 
@@ -795,7 +798,7 @@ export function playWildRent(
     selectedCardIds: [],
     blocked: false,
     jsnCount: 0,
-    lastJsnPlayerId: null,
+    lastJsnPlayerId: playerId,
   });
 
   game.phase = "pendingAction";

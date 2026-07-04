@@ -59,7 +59,7 @@ export function PaymentModal({
   }
 
   // ── JSN was played — show waiting/counter screen ───────────────────────────
-  if (jsnCount > 0) {
+  if (jsnCount > 0 && (isBlocked || !isMyPayment)) {
     return (
       <div style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
