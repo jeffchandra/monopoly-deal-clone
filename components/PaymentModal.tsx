@@ -260,7 +260,7 @@ export function PaymentModal({
             <span style={{ color: "#4b5563" }}> / ${maxNeeded}M</span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {canPlayJsn && myJsnCard && onPlayJustSayNo && (
+            {myJsnCard && onPlayJustSayNo && (
               <button
                 onClick={() => onPlayJustSayNo(myJsnCard.id)}
                 style={{
@@ -269,7 +269,7 @@ export function PaymentModal({
                   fontSize: 13, fontWeight: 700, cursor: "pointer", minHeight: 44,
                 }}
               >
-                JSN 🚫
+                JSN
               </button>
             )}
             <button
