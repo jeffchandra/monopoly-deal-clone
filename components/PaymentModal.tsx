@@ -7,23 +7,29 @@ interface PaymentModalProps {
   game: Game;
   pending: PendingPayment;
   viewingPlayerId: string;
+  myPlayerId?: string;
   paymentCardIds: string[];
   onToggleCard: (cardId: string) => void;
   onConfirm: () => void;
   onSwitchToPlayer: (playerId: string) => void;
   myJsnCard?: { id: string } | null;
   onPlayJustSayNo?: (cardId: string) => void;
-  jsnCount?: number;
+  canPlayJsn?: boolean;
 }
 
 export function PaymentModal({
-  game, pending, viewingPlayerId, paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer, myJsnCard, onPlayJustSayNo, jsnCount
+  game, pending, viewingPlayerId, myPlayerId,
+  paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer,
+  myJsnCard, onPlayJustSayNo, canPlayJsn,
 }: PaymentModalProps) {
   const isMyPayment = pending.fromPlayerId === viewingPlayerId;
   const payer = game.players.find(p => p.id === pending.fromPlayerId)!;
   const creditor = game.players.find(p => p.id === pending.toPlayerId)!;
+  const jsnCount = pending.jsnCount ?? 0;
+  const isBlocked = jsnCount % 2 === 1;
 
-  if (!isMyPayment) {
+  // ── Pass and play waiting screen ───────────────────────────────────────────
+  if (!isMyPayment && !myPlayerId) {
     return (
       <div style={{
         position: "fixed", inset: 0, background: "#0f1f0f",
@@ -52,6 +58,81 @@ export function PaymentModal({
     );
   }
 
+  // ── JSN was played — show waiting/counter screen ───────────────────────────
+  if (jsnCount > 0) {
+    return (
+      <div style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 50, padding: 16,
+      }}>
+        <div style={{
+          background: "#0a170a", border: "1px solid #1f3d1f",
+          borderRadius: 16, padding: 24, width: "100%", maxWidth: 400,
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🚫</div>
+          <div style={{ color: "white", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+            Just Say No!
+          </div>
+          <div style={{
+            background: "#1e1b4b", border: "1px solid #4c1d95",
+            borderRadius: 8, padding: "8px 12px", marginBottom: 16,
+            color: "#c4b5fd", fontSize: 13,
+          }}>
+            {jsnCount} JSN played — action is {isBlocked ? "BLOCKED 🚫" : "GOING THROUGH ✅"}
+          </div>
+          <div style={{ color: "#9ca3af", fontSize: 12, marginBottom: 20 }}>
+            {pending.lastJsnPlayerId === viewingPlayerId
+              ? "Waiting for others to respond..."
+              : isBlocked
+                ? `${creditor.name}'s action is blocked. Counter with Just Say No to unblock it.`
+                : `${payer.name}'s payment is required. Counter with Just Say No to block it.`
+            }
+          </div>
+
+          {/* JSN counter button */}
+          {canPlayJsn && myJsnCard && onPlayJustSayNo && (
+            <button
+              onClick={() => onPlayJustSayNo(myJsnCard.id)}
+              style={{
+                width: "100%", minHeight: 48,
+                background: "#7c3aed", border: "none", borderRadius: 10,
+                color: "white", fontSize: 15, fontWeight: 700,
+                cursor: "pointer", marginBottom: 10,
+              }}
+            >
+              Just Say No!
+            </button>
+          )}
+
+          {/* Payer confirms payment when not blocked */}
+          {isMyPayment && !isBlocked && (
+            <div style={{ color: "#9ca3af", fontSize: 12 }}>
+              JSN cancelled — you must pay. Tap below to proceed.
+            </div>
+          )}
+
+          {/* Attacker accepts block */}
+          {myPlayerId === pending.toPlayerId && isBlocked && pending.lastJsnPlayerId !== myPlayerId && (
+            <button
+              onClick={onConfirm}
+              style={{
+                width: "100%", minHeight: 48,
+                background: "#374151", border: "none", borderRadius: 10,
+                color: "white", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", marginBottom: 10,
+              }}
+            >
+              Accept Block
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal payment screen ──────────────────────────────────────────────────
   const bankCards = [...payer.bank];
   const incompleteSetCards: { setId: string; card: PropertyCard }[] = [];
   for (const set of payer.propertySets) {
@@ -166,50 +247,46 @@ export function PaymentModal({
           </>
         )}
 
-        {/* Summary + confirm */}
+        {/* Summary + buttons */}
         <div style={{
           borderTop: "1px solid #1f3d1f", paddingTop: 12,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         }}>
           <div style={{ fontSize: 13 }}>
             <span style={{ color: "#6b7280" }}>Selected: </span>
             <span style={{ color: selectedValue >= amountOwed ? "#4ade80" : "#fbbf24", fontWeight: 700 }}>
               ${selectedValue}M
             </span>
-            <span style={{ color: "#4b5563" }}> / ${maxNeeded}M needed</span>
+            <span style={{ color: "#4b5563" }}> / ${maxNeeded}M</span>
           </div>
-          {/* JSN button */}
-          {myJsnCard && onPlayJustSayNo && (
+          <div style={{ display: "flex", gap: 8 }}>
+            {canPlayJsn && myJsnCard && onPlayJustSayNo && (
+              <button
+                onClick={() => onPlayJustSayNo(myJsnCard.id)}
+                style={{
+                  background: "#7c3aed", border: "none", borderRadius: 8,
+                  padding: "10px 16px", color: "white",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", minHeight: 44,
+                }}
+              >
+                JSN 🚫
+              </button>
+            )}
             <button
-              onClick={() => onPlayJustSayNo(myJsnCard.id)}
+              onClick={onConfirm}
+              disabled={!canConfirm}
               style={{
-                background: "#7c3aed", border: "none", borderRadius: 8,
-                padding: "10px 20px", color: "white",
-                fontSize: 14, fontWeight: 700, cursor: "pointer", minHeight: 44,
+                background: canConfirm ? "#16a34a" : "#1f2937",
+                color: canConfirm ? "white" : "#4b5563",
+                border: "none", borderRadius: 8,
+                padding: "10px 24px", fontSize: 14, fontWeight: 700,
+                cursor: canConfirm ? "pointer" : "not-allowed",
+                minHeight: 44,
               }}
             >
-              Just Say No! 🚫
+              Pay
             </button>
-          )}
-          {jsnCount !== undefined && jsnCount > 0 && (
-            <div style={{ color: "#c4b5fd", fontSize: 11 }}>
-              {jsnCount} JSN played — {jsnCount % 2 === 1 ? "payment blocked" : "payment going through"}
-            </div>
-          )}
-          <button
-            onClick={onConfirm}
-            disabled={!canConfirm}
-            style={{
-              background: canConfirm ? "#16a34a" : "#1f2937",
-              color: canConfirm ? "white" : "#4b5563",
-              border: "none", borderRadius: 8,
-              padding: "10px 24px", fontSize: 14, fontWeight: 700,
-              cursor: canConfirm ? "pointer" : "not-allowed",
-              minHeight: 44,
-            }}
-          >
-            Pay
-          </button>
+          </div>
         </div>
       </div>
     </div>

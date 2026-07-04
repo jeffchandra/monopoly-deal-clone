@@ -368,14 +368,18 @@ export default function MultiplayerPage() {
 
   const pendingSteal = pendingSlyDeal ?? pendingForcedDeal ?? null;
 
-    // Does this player have a JSN card
+  // Does this player have a JSN card
   const myJsnCard = game.players
     .find(p => p.id === myPlayerId)?.hand
     .find(c => c.type === "action" && (c as ActionCard).action === "justSayNo") ?? null;
 
-    // Can I play JSN right now
+  // Can I play JSN right now
   const canPlayJsn = pendingSteal !== null &&
     pendingSteal.lastJsnPlayerId !== myPlayerId &&
+    myJsnCard !== null;
+
+  const canPlayJsnOnPayment = pendingPayment !== null &&
+    pendingPayment.lastJsnPlayerId !== myPlayerId &&
     myJsnCard !== null;
 
   const isMyPayment = pendingPayment?.fromPlayerId === myPlayerId;
@@ -474,10 +478,59 @@ export default function MultiplayerPage() {
               setPaymentCardIds([]);
             }}
             onSwitchToPlayer={() => {}}
-            myJsnCard={myJsnCard}
+            myJsnCard={canPlayJsnOnPayment ? myJsnCard : null}
             onPlayJustSayNo={cardId => mp.doPlayJustSayNo(cardId)}
-            jsnCount={pendingPayment.jsnCount}
           />
+        )}
+
+        {/* Attacker JSN counter modal */}
+        {pendingPayment && !isMyPayment && (pendingPayment.jsnCount ?? 0) > 0 && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 50, padding: 16,
+          }}>
+            <div style={{
+              background: "#0a170a", border: "1px solid #1f3d1f",
+              borderRadius: 16, padding: 20, width: "100%", maxWidth: 400,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🚫</div>
+              <div style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+                Just Say No played!
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16 }}>
+                {(pendingPayment.jsnCount ?? 0) % 2 === 1
+                  ? "Your action is BLOCKED"
+                  : "Your action is GOING THROUGH"}
+              </div>
+              <div style={{
+                background: "#1e1b4b", border: "1px solid #4c1d95",
+                borderRadius: 8, padding: "6px 12px", marginBottom: 16,
+                color: "#c4b5fd", fontSize: 12,
+              }}>
+                {pendingPayment.jsnCount} Just Say No{pendingPayment.jsnCount > 1 ? "s" : ""} played
+              </div>
+              {canPlayJsnOnPayment && myJsnCard && (
+                <button
+                  onClick={() => mp.doPlayJustSayNo(myJsnCard.id)}
+                  style={{
+                    width: "100%", minHeight: 48,
+                    background: "#7c3aed", border: "none", borderRadius: 10,
+                    color: "white", fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", marginBottom: 10,
+                  }}
+                >
+                  Counter with Just Say No!
+                </button>
+              )}
+              {pendingPayment.lastJsnPlayerId === myPlayerId && (
+                <div style={{ color: "#6b7280", fontSize: 13 }}>
+                  Waiting for {game.players.find(p => p.id === pendingPayment.fromPlayerId)?.name} to respond...
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* JSN response modal for sly/forced deal */}
@@ -514,7 +567,7 @@ export default function MultiplayerPage() {
                   borderRadius: 8, padding: "6px 12px", marginBottom: 12,
                   color: "#c4b5fd", fontSize: 12,
                 }}>
-                  {pendingSteal.jsnCount} Just Say No{pendingSteal.jsnCount > 1 ? "s" : ""} played —
+                  {pendingSteal.jsnCount} Just Say No {pendingSteal.jsnCount > 1 ? "s" : ""} played —
                   action is currently {pendingSteal.jsnCount % 2 === 1 ? "BLOCKED" : "GOING THROUGH"}
                 </div>
               )}
@@ -531,7 +584,7 @@ export default function MultiplayerPage() {
                     cursor: "pointer", marginBottom: 10,
                   }}
                 >
-                  Just Say No! 🚫
+                  Just Say No!
                 </button>
               )}
 
