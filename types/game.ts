@@ -38,14 +38,19 @@ export type PendingActionKind =
 
 export interface PendingPayment {
   kind: "payRent" | "payBirthday" | "payDebtCollector";
-  fromPlayerId: string;
-  toPlayerId: string;
+  fromPlayerId: string;   // for payRent/payDebtCollector: who owes; for payBirthday: the charger
+  toPlayerId: string;     // who receives
   amountOwed: number;
   selectedCardIds: string[];
-  blocked: boolean;
-  // JSN tracking
+  blocked: false;
   jsnCount: number;
   lastJsnPlayerId: string | null;
+  // New: track all payers and their confirmations
+  allPayerIds: string[];
+  confirmedPayments: {
+    playerId: string;
+    cardIds: string[];
+  }[];
 }
 
 export interface PendingSlyDeal {

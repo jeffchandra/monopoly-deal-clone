@@ -15,12 +15,16 @@ interface PaymentModalProps {
   myJsnCard?: { id: string } | null;
   onPlayJustSayNo?: (cardId: string) => void;
   canPlayJsn?: boolean;
+  allPayerIds?: string[];
+  confirmedPayments?: { playerId: string; cardIds: string[] }[];
+  iHaveConfirmed?: boolean;
 }
 
 export function PaymentModal({
   game, pending, viewingPlayerId, myPlayerId,
   paymentCardIds, onToggleCard, onConfirm, onSwitchToPlayer,
   myJsnCard, onPlayJustSayNo, canPlayJsn,
+  allPayerIds, confirmedPayments, iHaveConfirmed
 }: PaymentModalProps) {
   const isMyPayment = pending.fromPlayerId === viewingPlayerId;
   const payer = game.players.find(p => p.id === pending.fromPlayerId)!;
@@ -125,6 +129,60 @@ export function PaymentModal({
               }}
             >
               Accept Block
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Already confirmed — waiting for others ─────────────────────────────────
+  if (iHaveConfirmed) {
+    return (
+      <div style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 50, padding: 16,
+      }}>
+        <div style={{
+          background: "#0a170a", border: "1px solid #1f3d1f",
+          borderRadius: 16, padding: 24, width: "100%", maxWidth: 400,
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+            Payment confirmed! Waiting for others...
+          </div>
+          {allPayerIds?.map(pid => {
+            const hasConfirmed = confirmedPayments?.some(p => p.playerId === pid);
+            const player = game.players.find(p => p.id === pid);
+            return (
+              <div key={pid} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                marginBottom: 6, justifyContent: "center",
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: hasConfirmed ? "#4ade80" : "#6b7280",
+                  flexShrink: 0,
+                }} />
+                <span style={{ color: hasConfirmed ? "#4ade80" : "#9ca3af", fontSize: 13 }}>
+                  {player?.name} {hasConfirmed ? "✓" : "pending..."}
+                </span>
+              </div>
+            );
+          })}
+          {canPlayJsn && myJsnCard && onPlayJustSayNo && (
+            <button
+              onClick={() => onPlayJustSayNo(myJsnCard.id)}
+              style={{
+                width: "100%", minHeight: 48,
+                background: "#7c3aed", border: "none", borderRadius: 10,
+                color: "white", fontSize: 15, fontWeight: 700,
+                cursor: "pointer", marginTop: 16,
+              }}
+            >
+              Just Say No! 🚫 (Cancel all payments)
             </button>
           )}
         </div>
@@ -288,6 +346,32 @@ export function PaymentModal({
             </button>
           </div>
         </div>
+        
+        {/* Confirmation status */}
+        {allPayerIds && allPayerIds.length > 1 && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #1f3d1f" }}>
+            <div style={{ color: "#6b7280", fontSize: 11, marginBottom: 6 }}>
+              Waiting for:
+            </div>
+            {allPayerIds.map(pid => {
+              const hasConfirmed = confirmedPayments?.some(p => p.playerId === pid);
+              const player = game.players.find(p => p.id === pid);
+              return (
+                <div key={pid} style={{
+                  display: "flex", alignItems: "center", gap: 6, marginBottom: 4,
+                }}>
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%",
+                    background: hasConfirmed ? "#4ade80" : "#6b7280",
+                  }} />
+                  <span style={{ color: hasConfirmed ? "#4ade80" : "#9ca3af", fontSize: 12 }}>
+                    {player?.name} {hasConfirmed ? "✓ Confirmed" : "..."}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { Game, Player, PendingPayment, PendingSlyDeal, PendingForcedDeal } from 
 import { Card, RentCard, PropertyCard, PropertyColor } from "../types/card";
 import { createDeck, shuffleDeck } from "./deck";
 import { isSetComplete, getCompletedSetCount, getRentForSet, getRentableSetsByCard, getIncompleteSetForColor } from "./propertyUtils";
-import { getTotalAssets } from "./bankUtils";
+import { getTotalAssets, collectPayment } from "./bankUtils";
 import { PROPERTY_RULES } from "../data/propertyRules";
 
 function generateId(): string {
@@ -249,92 +249,93 @@ export function confirmPayment(
   playerId: string,
   cardIds: string[]
 ): void {
-  if (game.phase !== "pendingAction") throw new Error("No pending action");
-
   const pending = game.pendingActions[0];
   if (!pending) throw new Error("No pending action");
-
-  // If odd number of JSNs, action is blocked — skip payment
-  if ((pending.jsnCount ?? 0) % 2 === 1) {
-    game.pendingActions.shift();
-    if (game.pendingActions.length === 0) {
-      game.phase = "actionPhase";
-    }
-    addLog(game, "Action was blocked by Just Say No!");
-    return;
-  }
-  
   if (
     pending.kind !== "payRent" &&
     pending.kind !== "payBirthday" &&
     pending.kind !== "payDebtCollector"
   ) throw new Error("Pending action is not a payment");
-  if (pending.fromPlayerId !== playerId) throw new Error("Not your payment to make");
+
+  // Check if blocked by odd JSN
+  if ((pending.jsnCount ?? 0) % 2 === 1) {
+    // Return any confirmed payments
+    const receiver = getPlayerById(game, pending.toPlayerId);
+    // Remove from receiver and return to original payers
+    // (handled below in resolution)
+    game.pendingActions.shift();
+    if (game.pendingActions.length === 0) {
+      game.phase = "actionPhase";
+    }
+    addLog(game, "Payment blocked by Just Say No!");
+    return;
+  }
+
+  // Validate this player is a payer
+  if (!pending.allPayerIds.includes(playerId)) {
+    throw new Error("You are not a payer in this action");
+  }
+
+  // Check already confirmed
+  if (pending.confirmedPayments.some(p => p.playerId === playerId)) {
+    throw new Error("You have already confirmed payment");
+  }
 
   const payer = getPlayerById(game, playerId);
-  const receiver = getPlayerById(game, pending.toPlayerId);
-
   const totalAssets = getTotalAssets(payer);
   const amountOwed = pending.amountOwed;
 
-  // Calculate value of selected cards
+  // Validate selection
   let selectedValue = 0;
   for (const id of cardIds) {
     const bankCard = payer.bank.find(c => c.id === id);
-    if (bankCard) {
-      selectedValue += bankCard.value;
-      continue;
-    }
+    if (bankCard) { selectedValue += bankCard.value; continue; }
     for (const set of payer.propertySets) {
       if (isSetComplete(set)) continue;
       const prop = set.properties.find(c => c.id === id);
-      if (prop) {
-        selectedValue += prop.value;
-        break;
-      }
+      if (prop) { selectedValue += prop.value; break; }
     }
   }
 
-  // Must pay full amount, or everything they have if they can't afford it
   if (selectedValue < amountOwed && selectedValue < totalAssets) {
     throw new Error(`Must pay $${amountOwed}M or everything you have`);
   }
 
-  for (const id of cardIds) {
-    // Try bank first
-    const bankIdx = payer.bank.findIndex(c => c.id === id);
-    if (bankIdx !== -1) {
-      receiver.bank.push(payer.bank.splice(bankIdx, 1)[0]);
-      continue;
-    }
+  // Add to confirmed payments (don't transfer yet)
+  pending.confirmedPayments.push({ playerId, cardIds });
 
-    // Try incomplete property sets
-    for (const set of payer.propertySets) {
-      if (isSetComplete(set)) continue;
-      const propIdx = set.properties.findIndex(c => c.id === id);
-      if (propIdx !== -1) {
-        const card = set.properties.splice(propIdx, 1)[0] as PropertyCard;
-        // Clean up empty set
-        if (set.properties.length === 0) {
-          payer.propertySets = payer.propertySets.filter(s => s.id !== set.id);
+  addLog(game, `${payer.name} confirmed payment of $${selectedValue}M.`);
+
+  // Check if all payers have confirmed
+  const allConfirmed = pending.allPayerIds.every(
+    id => pending.confirmedPayments.some(p => p.playerId === id)
+  );
+
+  if (allConfirmed) {
+    // Transfer all payments at once
+    const receiver = getPlayerById(game, pending.toPlayerId);
+    for (const { playerId: pid, cardIds: cids } of pending.confirmedPayments) {
+      const p = getPlayerById(game, pid);
+      const paid = collectPayment(p, cids);
+      for (const c of paid) {
+        if (c.type === "property") {
+          receiver.propertySets.push({
+            id: generateId(),
+            color: (c as PropertyCard).activeColor,
+            properties: [c as PropertyCard],
+            hasHouse: false,
+            hasHotel: false,
+          });
+        } else {
+          receiver.bank.push(c);
         }
-        receiver.propertySets.push({
-          id: generateId(),
-          color: card.activeColor,
-          properties: [card],
-          hasHouse: false,
-          hasHotel: false,
-        });
-        break;
       }
     }
-  }
-
-  addLog(game, `${payer.name} paid $${selectedValue}M to ${receiver.name}.`);
-
-  game.pendingActions.shift();
-  if (game.pendingActions.length === 0) {
-    game.phase = "actionPhase";
+    addLog(game, `All payments received by ${receiver.name}.`);
+    game.pendingActions.shift();
+    if (game.pendingActions.length === 0) {
+      game.phase = "actionPhase";
+    }
   }
 }
 
@@ -402,6 +403,7 @@ export function playRentCard(
   if (newCardIdx === -1) throw new Error("Rent card not found after removing double rent");
 
   const amount = getRentForSet(set) * multiplier;
+
   const opponents = targetPlayerId
     ? [getPlayerById(game, targetPlayerId)]
     : getOpponents(game, playerId);
@@ -410,18 +412,18 @@ export function playRentCard(
   game.discardPile.push(rentCard);
   game.actionsRemaining--;
 
-  for (const opponent of opponents) {
-    game.pendingActions.push({
-      kind: "payRent",
-      fromPlayerId: opponent.id,
-      toPlayerId: playerId,
-      amountOwed: amount,
-      selectedCardIds: [],
-      blocked: false,
-      jsnCount: 0,
-      lastJsnPlayerId: playerId,
-    });
-  }
+  game.pendingActions.push({
+    kind: "payRent",
+    fromPlayerId: playerId,
+    toPlayerId: playerId,
+    amountOwed: amount,
+    selectedCardIds: [],
+    blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: playerId,
+    allPayerIds: opponents.map(o => o.id),
+    confirmedPayments: [],
+  });
 
   game.phase = "pendingAction";
   addLog(
@@ -516,18 +518,19 @@ export function playItsMyBirthday(
   game.actionsRemaining--;
 
   const opponents = getOpponents(game, playerId);
-  for (const opponent of opponents) {
-    game.pendingActions.push({
-      kind: "payBirthday",
-      fromPlayerId: opponent.id,
-      toPlayerId: playerId,
-      amountOwed: 2,
-      selectedCardIds: [],
-      blocked: false,
-      jsnCount: 0,
-      lastJsnPlayerId: playerId,
-    });
-  }
+
+  game.pendingActions.push({
+    kind: "payBirthday",
+    fromPlayerId: playerId,   // charger
+    toPlayerId: playerId,     // receiver (same person)
+    amountOwed: 2,
+    selectedCardIds: [],
+    blocked: false,
+    jsnCount: 0,
+    lastJsnPlayerId: playerId,
+    allPayerIds: opponents.map(o => o.id),
+    confirmedPayments: [],
+  });
 
   game.phase = "pendingAction";
   addLog(game, `🎂 ${player.name} played It's My Birthday! Everyone pays $2M.`);
@@ -554,13 +557,15 @@ export function playDebtCollector(
 
   game.pendingActions.push({
     kind: "payDebtCollector",
-    fromPlayerId: target.id,
+    fromPlayerId: targetPlayerId,
     toPlayerId: playerId,
     amountOwed: 5,
     selectedCardIds: [],
     blocked: false,
     jsnCount: 0,
     lastJsnPlayerId: playerId,
+    allPayerIds: [targetPlayerId],
+    confirmedPayments: [],
   });
 
   game.phase = "pendingAction";
@@ -799,6 +804,8 @@ export function playWildRent(
     blocked: false,
     jsnCount: 0,
     lastJsnPlayerId: playerId,
+    allPayerIds: [target.id],
+    confirmedPayments: [],
   });
 
   game.phase = "pendingAction";

@@ -353,6 +353,9 @@ export default function MultiplayerPage() {
       ? game.pendingActions[0]
       : null;
 
+  const isMyPayment = pendingPayment?.allPayerIds.includes(myPlayerId ?? "") ?? false;
+  const iHaveConfirmed = pendingPayment?.confirmedPayments.some(p => p.playerId === myPlayerId) ?? false;
+
   const pendingSlyDeal =
     game.phase === "pendingAction" &&
     game.pendingActions.length > 0 &&
@@ -382,8 +385,6 @@ export default function MultiplayerPage() {
   const canPlayJsnOnPayment = pendingPayment !== null &&
     pendingPayment.lastJsnPlayerId !== myPlayerId &&
     myJsnCard !== null;
-
-  const isMyPayment = pendingPayment?.fromPlayerId === myPlayerId;
 
   function clearSelection() {
     setSelectedCardIds([]);
@@ -502,13 +503,33 @@ export default function MultiplayerPage() {
                 <span style={{ color: "#f87171", fontWeight: 600 }}>
                   {game.players.find(p => p.id === pendingSteal.fromPlayerId)?.name}
                 </span>
-                {pendingSteal.kind === "slyDeal"
-                  ? " is stealing a property from "
-                  : " is forcing a deal with "}
-                <span style={{ color: "#60a5fa", fontWeight: 600 }}>
-                  {game.players.find(p => p.id === pendingSteal.toPlayerId)?.name}
+                {pendingSteal.kind === "slyDeal" ? " wants to steal " : " wants to swap for "}
+                <span style={{ color: "#fbbf24", fontWeight: 600 }}>
+                  {/* Find the card name from victim's properties */}
+                  {(() => {
+                    const victim = game.players.find(p => p.id === pendingSteal.toPlayerId);
+                    const set = victim?.propertySets.find(s => s.id === pendingSteal.targetSetId);
+                    const card = set?.properties.find(c => c.id === pendingSteal.targetCardId);
+                    return card?.name ?? "a property";
+                  })()}
                 </span>
-                .
+                {pendingSteal.kind === "forcedDeal" && (
+                  <>
+                    {" from "}
+                    <span style={{ color: "#60a5fa", fontWeight: 600 }}>
+                      {game.players.find(p => p.id === pendingSteal.toPlayerId)?.name}
+                    </span>
+                    {" in exchange for "}
+                    <span style={{ color: "#4ade80", fontWeight: 600 }}>
+                      {(() => {
+                        const attacker = game.players.find(p => p.id === pendingSteal.fromPlayerId);
+                        const set = attacker?.propertySets.find(s => s.id === (pendingSteal as any).offeredSetId);
+                        const card = set?.properties.find(c => c.id === (pendingSteal as any).offeredCardId);
+                        return card?.name ?? "a property";
+                      })()}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* JSN count indicator */}
