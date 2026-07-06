@@ -595,10 +595,11 @@ export default function MultiplayerPage() {
               textAlign: "center",
             }}>
               {(pendingPayment.jsnCount ?? 0) > 0 ? (
+                // JSN state — existing JSN counter UI
                 <>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>🚫</div>
                   <div style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
-                      Just Say No played!
+                    Just Say No played!
                   </div>
                   <div style={{
                     background: "#1e1b4b", border: "1px solid #4c1d95",
@@ -626,17 +627,16 @@ export default function MultiplayerPage() {
                       Waiting for others to respond...
                     </div>
                   )}
-                  {/* Attacker accepts block */}
                   {myPlayerId === pendingPayment.toPlayerId &&
                     pendingPayment.jsnCount % 2 === 1 &&
                     pendingPayment.lastJsnPlayerId !== myPlayerId && (
-                      <button
-                        onClick={() => mp.doConfirmPayment([])}
-                        style={{
-                          width: "100%", minHeight: 48,
-                          background: "#374151", border: "none", borderRadius: 10,
-                          color: "white", fontSize: 14, fontWeight: 600,
-                          cursor: "pointer",
+                    <button
+                      onClick={() => mp.doConfirmPayment([])}
+                      style={{
+                        width: "100%", minHeight: 48,
+                        background: "#374151", border: "none", borderRadius: 10,
+                        color: "white", fontSize: 14, fontWeight: 600,
+                        cursor: "pointer",
                       }}
                     >
                       Accept Block
@@ -644,11 +644,36 @@ export default function MultiplayerPage() {
                   )}
                 </>
               ) : (
+                // Normal waiting state — show who has paid and JSN option
                 <>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
-                  <div style={{ color: "white", fontSize: 18, fontWeight: 700 }}>
-                    Waiting for {game.players.find(p => p.id === pendingPayment.fromPlayerId)?.name}...
+                  <div style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+                  {pendingPayment.kind === "payBirthday" ? "🎂 It's My Birthday!" :
+                    pendingPayment.kind === "payRent" ? "🏠 Rent Due" : "💰 Debt Collector"}
                   </div>
+                  <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16 }}>
+                    Waiting for payments...
+                  </div>
+                  {/* Show payment status */}
+                  {pendingPayment.allPayerIds.map(pid => {
+                    const hasConfirmed = pendingPayment.confirmedPayments?.some(p => p.playerId === pid);
+                    const player = game.players.find(p => p.id === pid);
+                    return (
+                      <div key={pid} style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        marginBottom: 6, justifyContent: "center",
+                      }}>
+                        <div style={{
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: hasConfirmed ? "#4ade80" : "#6b7280",
+                          flexShrink: 0,
+                        }} />
+                        <span style={{ color: hasConfirmed ? "#4ade80" : "#9ca3af", fontSize: 13 }}>
+                          {player?.name} {hasConfirmed ? "✓ Paid" : "paying..."}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {/* JSN button */}
                   {canPlayJsnOnPayment && myJsnCard && (
                     <button
                       onClick={() => mp.doPlayJustSayNo(myJsnCard.id)}
@@ -659,7 +684,7 @@ export default function MultiplayerPage() {
                         cursor: "pointer", marginTop: 16,
                       }}
                     >
-                      Just Say No!
+                      Just Say No! 🚫
                     </button>
                   )}
                 </>
