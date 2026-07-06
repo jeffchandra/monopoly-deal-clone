@@ -283,23 +283,30 @@ export default function Page() {
 
   function handleConfirmPayment() {
     if (!game) return;
-    const nextPending = game.pendingActions[1];
+    const nextPending = game.pendingActions[0];
     const actingPlayerId = game.currentPlayerId;
     const actingPlayerName = game.players.find(p => p.id === actingPlayerId)?.name ?? "";
     doConfirmPayment(viewingPlayerId, paymentCardIds, () => {
       setPaymentCardIds([]);
-      if (nextPending) {
-        const nextPayerName = game.players.find(p => p.id === nextPending.allPayerIds[0])?.name ?? "";
-        showHandoff(nextPayerName, "You need to make a payment.", () => {
-          setViewingPlayerId(nextPending.allPayerIds[0]);
-          setHandoff(null);
-        });
-      } else {
-        showHandoff(actingPlayerName, "All payments done — continue your turn.", () => {
-          setViewingPlayerId(actingPlayerId);
-          setHandoff(null);
-        });
+      // Find next unconfirmed payer in current pending action
+      const currentPending = game.pendingActions[0];
+      if (currentPending && 'allPayerIds' in currentPending) {
+        const nextPayerId = currentPending.allPayerIds.find(
+          id => !currentPending.confirmedPayments.some(p => p.playerId === id) && id !== viewingPlayerId
+        );
+        if (nextPayerId) {
+          const nextPayerName = game.players.find(p => p.id === nextPayerId)?.name ?? "";
+          showHandoff(nextPayerName, "You need to make a payment.", () => {
+            setViewingPlayerId(nextPayerId);
+            setHandoff(null);
+          });
+          return;
+        }
       }
+      showHandoff(actingPlayerName, "All payments done — continue your turn.", () => {
+        setViewingPlayerId(actingPlayerId);
+        setHandoff(null);
+      });
     });
   }
 
