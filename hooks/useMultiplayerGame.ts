@@ -52,6 +52,7 @@ export function useMultiplayerGame() {
 
     socket.on("error", (data: { message: string }) => {
       setError(data.message);
+      setTimeout(() => setError(null), 5000);
     });
 
     socket.on("playerDisconnected", (data: { playerName: string; reconnectable: boolean }) => {

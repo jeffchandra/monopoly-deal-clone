@@ -51,10 +51,10 @@ export function useGame() {
         for (const p of next.players) {
           p.bank = sortBank(p.bank);
         }
-        setLastLog(next.log);
         return next;
       } catch (e: any) {
         setError(e.message);
+        setTimeout(() => setError(null), 4000);
         return prev;
       }
     });

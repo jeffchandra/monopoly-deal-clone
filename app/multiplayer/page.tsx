@@ -33,12 +33,17 @@ export default function MultiplayerPage() {
   const [selectedBoardCardId, setSelectedBoardCardId] = useState<string | null>(null);
   const [selectedBoardSetId, setSelectedBoardSetId] = useState<string | null>(null);
   const [wildRentTargetPlayerId, setWildRentTargetPlayerId] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     if (mp.game && screen === "lobby") {
       setScreen("game");
     }
   }, [mp.game]);
+
+  useEffect(() => {
+    if (mp.lobby || mp.error) setConnecting(false);
+  }, [mp.lobby, mp.error]);
 
   const s: React.CSSProperties = {
     minHeight: "100vh",
@@ -138,6 +143,7 @@ export default function MultiplayerPage() {
             onClick={() => {
               const code = generatedCode;
               setRoomCode(code);
+              setConnecting(true);
               mp.connect(code, playerName.trim(), true);
               setScreen("lobby");
             }}
@@ -179,6 +185,7 @@ export default function MultiplayerPage() {
             disabled={!playerName.trim() || roomCodeInput.length !== 4}
             onClick={() => {
               setRoomCode(roomCodeInput);
+              setConnecting(true);
               mp.connect(roomCodeInput, playerName.trim(), false);
               setScreen("lobby");
             }}
@@ -188,6 +195,24 @@ export default function MultiplayerPage() {
           <button style={btn("#374151")} onClick={() => setScreen("home")}>
             ← Back
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (connecting) {
+    return (
+      <div style={s}>
+        <div style={card}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+            <div style={{ color: "white", fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+              Connecting...
+            </div>
+            <div style={{ color: "#6b7280", fontSize: 13 }}>
+              Server may take up to 60 seconds to wake up
+            </div>
+          </div>
         </div>
       </div>
     );
