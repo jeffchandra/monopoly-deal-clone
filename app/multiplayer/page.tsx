@@ -583,7 +583,7 @@ export default function MultiplayerPage() {
           </div>
         )}
 
-        {pendingPayment && !isMyPayment && (
+        {pendingPayment && !isMyPayment && myPlayerId !== pendingPayment.toPlayerId && (
           <div style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
             display: "flex", alignItems: "center", justifyContent: "center",
