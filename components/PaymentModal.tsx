@@ -34,6 +34,8 @@ export function PaymentModal({
   const jsnCount = pending.jsnCount ?? 0;
   const isBlocked = jsnCount % 2 === 1;
 
+  console.log("PaymentModal:", { isMyPayment, iHaveConfirmed, jsnCount, myPlayerId });
+
   // ── Pass and play waiting screen ───────────────────────────────────────────
   if (!isMyPayment && !myPlayerId) {
     return (

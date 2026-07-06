@@ -460,11 +460,6 @@ export default function MultiplayerPage() {
     );
   }
   
-  console.log("pendingPayment:", pendingPayment);
-  console.log("myPlayerId:", myPlayerId);
-  console.log("isMyPayment:", isMyPayment);
-  console.log("allPayerIds:", pendingPayment?.allPayerIds);
-
   return (
     <div style={{ minHeight: "100vh", background: "#0f1f0f", padding: "8px 12px 24px" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -489,6 +484,10 @@ export default function MultiplayerPage() {
             onSwitchToPlayer={() => {}}
             myJsnCard={canPlayJsnOnPayment ? myJsnCard : null}
             onPlayJustSayNo={cardId => mp.doPlayJustSayNo(cardId)}
+            iHaveConfirmed={iHaveConfirmed}
+            allPayerIds={pendingPayment.allPayerIds}
+            confirmedPayments={pendingPayment.confirmedPayments}
+            myPlayerId={myPlayerId ?? undefined}
           />
         )}
 
