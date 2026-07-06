@@ -289,9 +289,9 @@ export default function Page() {
     doConfirmPayment(viewingPlayerId, paymentCardIds, () => {
       setPaymentCardIds([]);
       if (nextPending) {
-        const nextPayerName = game.players.find(p => p.id === nextPending.fromPlayerId)?.name ?? "";
+        const nextPayerName = game.players.find(p => p.id === nextPending.allPayerIds[0])?.name ?? "";
         showHandoff(nextPayerName, "You need to make a payment.", () => {
-          setViewingPlayerId(nextPending.fromPlayerId);
+          setViewingPlayerId(nextPending.allPayerIds[0]);
           setHandoff(null);
         });
       } else {

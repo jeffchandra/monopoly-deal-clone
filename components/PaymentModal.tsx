@@ -26,9 +26,11 @@ export function PaymentModal({
   myJsnCard, onPlayJustSayNo, canPlayJsn,
   allPayerIds, confirmedPayments, iHaveConfirmed
 }: PaymentModalProps) {
-  const isMyPayment = pending.fromPlayerId === viewingPlayerId;
-  const payer = game.players.find(p => p.id === pending.fromPlayerId)!;
-  const creditor = game.players.find(p => p.id === pending.toPlayerId)!;
+  const isMyPayment = pending.allPayerIds[0] === viewingPlayerId;
+  const payer = pending.allPayerIds.length === 1
+    ? game.players.find(p => p.id === pending.allPayerIds[0])!
+    : game.players.find(p => p.id === viewingPlayerId)!;
+  const creditor = game.players.find(p => p.id === pending.chargerPlayerId)!;
   const jsnCount = pending.jsnCount ?? 0;
   const isBlocked = jsnCount % 2 === 1;
 
@@ -49,7 +51,7 @@ export function PaymentModal({
           Pass the device to them to pay.
         </div>
         <button
-          onClick={() => onSwitchToPlayer(pending.fromPlayerId)}
+          onClick={() => onSwitchToPlayer(pending.allPayerIds[0])}
           style={{
             background: "#1d4ed8", border: "none", borderRadius: 10,
             padding: "12px 28px", color: "white",
@@ -118,7 +120,7 @@ export function PaymentModal({
           )}
 
           {/* Attacker accepts block */}
-          {myPlayerId === pending.toPlayerId && isBlocked && pending.lastJsnPlayerId !== myPlayerId && (
+          {myPlayerId === pending.chargerPlayerId && isBlocked && pending.lastJsnPlayerId !== myPlayerId && (
             <button
               onClick={onConfirm}
               style={{

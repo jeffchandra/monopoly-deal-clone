@@ -354,6 +354,7 @@ export default function MultiplayerPage() {
       : null;
 
   const isMyPayment = pendingPayment?.allPayerIds.includes(myPlayerId ?? "") ?? false;
+  const isMyCharge = pendingPayment?.chargerPlayerId === myPlayerId;
   const iHaveConfirmed = pendingPayment?.confirmedPayments.some(p => p.playerId === myPlayerId) ?? false;
 
   const pendingSlyDeal =
@@ -583,7 +584,7 @@ export default function MultiplayerPage() {
           </div>
         )}
 
-        {pendingPayment && !isMyPayment && myPlayerId !== pendingPayment.toPlayerId && (
+        {pendingPayment && !isMyPayment && !isMyCharge && (
           <div style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -627,7 +628,7 @@ export default function MultiplayerPage() {
                       Waiting for others to respond...
                     </div>
                   )}
-                  {myPlayerId === pendingPayment.toPlayerId &&
+                  {myPlayerId === pendingPayment.chargerPlayerId &&
                     pendingPayment.jsnCount % 2 === 1 &&
                     pendingPayment.lastJsnPlayerId !== myPlayerId && (
                     <button
@@ -692,6 +693,61 @@ export default function MultiplayerPage() {
             </div>
           </div>
         )}
+
+        {pendingPayment && isMyCharge && (pendingPayment.jsnCount ?? 0) > 0 && (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 50, padding: 16,
+          }}>
+            <div style={{
+              background: "#0a170a", border: "1px solid #1f3d1f",
+              borderRadius: 16, padding: 24, width: "100%", maxWidth: 400,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🚫</div>
+              <div style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
+                Just Say No played!
+              </div>
+              <div style={{
+                background: "#1e1b4b", border: "1px solid #4c1d95",
+                borderRadius: 8, padding: "6px 12px", marginBottom: 16,
+                color: "#c4b5fd", fontSize: 12,
+              }}>
+                {pendingPayment.jsnCount} JSN —{" "}
+                {pendingPayment.jsnCount % 2 === 1 ? "Your action is BLOCKED 🚫" : "Your action is GOING THROUGH ✅"}
+              </div>
+              {canPlayJsnOnPayment && myJsnCard && (
+                <button
+                  onClick={() => mp.doPlayJustSayNo(myJsnCard.id)}
+                  style={{
+                    width: "100%", minHeight: 48,
+                    background: "#7c3aed", border: "none", borderRadius: 10,
+                    color: "white", fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", marginBottom: 10,
+                  }}
+                >
+                  Counter with Just Say No! 🚫
+                </button>
+              )}
+              {pendingPayment.jsnCount % 2 === 1 &&
+               pendingPayment.lastJsnPlayerId !== myPlayerId && (
+                <button
+                  onClick={() => mp.doConfirmPayment([])}
+                  style={{
+                    width: "100%", minHeight: 48,
+                    background: "#374151", border: "none", borderRadius: 10,
+                    color: "white", fontSize: 14, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Accept Block
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
 
         {/* Action card modal */}
         {selectedAction && isMyTurn && game.phase === "actionPhase" && !needsDiscard && (

@@ -260,7 +260,7 @@ export function confirmPayment(
   // Check if blocked by odd JSN
   if ((pending.jsnCount ?? 0) % 2 === 1) {
     // Return any confirmed payments
-    const receiver = getPlayerById(game, pending.toPlayerId);
+    const receiver = getPlayerById(game, pending.chargerPlayerId);
     // Remove from receiver and return to original payers
     // (handled below in resolution)
     game.pendingActions.shift();
@@ -313,7 +313,7 @@ export function confirmPayment(
 
   if (allConfirmed) {
     // Transfer all payments at once
-    const receiver = getPlayerById(game, pending.toPlayerId);
+    const receiver = getPlayerById(game, pending.chargerPlayerId);
     for (const { playerId: pid, cardIds: cids } of pending.confirmedPayments) {
       const p = getPlayerById(game, pid);
       const paid = collectPayment(p, cids);
@@ -414,8 +414,7 @@ export function playRentCard(
 
   game.pendingActions.push({
     kind: "payRent",
-    fromPlayerId: playerId,
-    toPlayerId: playerId,
+    chargerPlayerId: playerId,
     amountOwed: amount,
     selectedCardIds: [],
     blocked: false,
@@ -521,8 +520,7 @@ export function playItsMyBirthday(
 
   game.pendingActions.push({
     kind: "payBirthday",
-    fromPlayerId: playerId,   // charger
-    toPlayerId: playerId,     // receiver (same person)
+    chargerPlayerId: playerId,
     amountOwed: 2,
     selectedCardIds: [],
     blocked: false,
@@ -557,8 +555,7 @@ export function playDebtCollector(
 
   game.pendingActions.push({
     kind: "payDebtCollector",
-    fromPlayerId: targetPlayerId,
-    toPlayerId: playerId,
+    chargerPlayerId: playerId,
     amountOwed: 5,
     selectedCardIds: [],
     blocked: false,
@@ -797,8 +794,7 @@ export function playWildRent(
 
   game.pendingActions.push({
     kind: "payRent",
-    fromPlayerId: target.id,
-    toPlayerId: playerId,
+    chargerPlayerId: playerId,
     amountOwed: amount,
     selectedCardIds: [],
     blocked: false,

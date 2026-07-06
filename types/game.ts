@@ -38,8 +38,7 @@ export type PendingActionKind =
 
 export interface PendingPayment {
   kind: "payRent" | "payBirthday" | "payDebtCollector";
-  fromPlayerId: string;   // for payRent/payDebtCollector: who owes; for payBirthday: the charger
-  toPlayerId: string;     // who receives
+  chargerPlayerId: string;
   amountOwed: number;
   selectedCardIds: string[];
   blocked: false;
