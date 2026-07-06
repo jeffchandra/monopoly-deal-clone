@@ -459,14 +459,15 @@ export default function MultiplayerPage() {
       </div>
     );
   }
+  
+  console.log("pendingPayment:", pendingPayment);
+  console.log("myPlayerId:", myPlayerId);
+  console.log("isMyPayment:", isMyPayment);
+  console.log("allPayerIds:", pendingPayment?.allPayerIds);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f1f0f", padding: "8px 12px 24px" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
-        console.log("pendingPayment:", pendingPayment);
-        console.log("myPlayerId:", myPlayerId);
-        console.log("isMyPayment:", isMyPayment);
-        console.log("allPayerIds:", pendingPayment?.allPayerIds);
 
         {/* Payment modal */}
         {pendingPayment && isMyPayment && (
